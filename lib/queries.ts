@@ -14,6 +14,7 @@ export async function getStoreBySlug(slug: string): Promise<Store | null> {
     .from("stores")
     .select("*")
     .eq("slug", slug)
+    .eq("is_deleted", false)
     .single()
 
   if (error) {
@@ -98,6 +99,7 @@ export async function getActiveProductsByStoreId(storeId: string): Promise<Produ
     .select("*")
     .eq("store_id", storeId)
     .eq("is_active", true)
+    .eq("admin_hidden", false)
     .order("created_at", { ascending: false })
 
   if (error) {
@@ -122,6 +124,7 @@ export async function getFeaturedProducts(
     .eq("store_id", storeId)
     .eq("is_featured", true)
     .eq("is_active", true)
+    .eq("admin_hidden", false)
     .limit(limit)
     .order("created_at", { ascending: false })
 

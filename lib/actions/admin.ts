@@ -2,9 +2,15 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import { extendTrialSchema, storeActionSchema } from "@/lib/validations"
-import { ERROR_MESSAGES, ROUTES, TRIAL_CONFIG } from "@/lib/constants"
+import {
+  extendTrialSchema,
+  storeActionSchema,
+  convertToRegularSchema,
+  productAdminActionSchema,
+} from "@/lib/validations"
+import { ERROR_MESSAGES, ROUTES, TRIAL_CONFIG, SUBSCRIPTION_CONFIG } from "@/lib/constants"
 import { isAdminUser } from "@/lib/supabase/roles"
+import { deleteCloudinaryImages } from "@/lib/cloudinary-server"
 import type { Store, Product, ProductWithStore } from "@/types"
 
 // ============================================================
@@ -26,6 +32,8 @@ export type AdminStats = {
   blockedStores: number
   pausedStores: number
   trialExpiringSoon: number
+  subscriptionExpiringSoon: number
+  trashedStores: number
 }
 
 export type StoreWithProductCount = Store & {
@@ -36,10 +44,6 @@ export type StoreWithProductCount = Store & {
 // ADMIN VERIFICATION
 // ============================================================
 
-/**
- * Verify that the current user is an admin.
- * Prefers app_metadata.role and keeps user_metadata.role as fallback.
- */
 async function verifyAdmin() {
   const supabase = await createClient()
   const {
@@ -60,250 +64,403 @@ async function verifyAdmin() {
 }
 
 // ============================================================
-// STORE MANAGEMENT ACTIONS
+// STORE STATUS ACTIONS
 // ============================================================
 
-/**
- * Block a store
- * - Prevents store from appearing on public storefront
- * - Prevents seller from adding products
- */
 export async function blockStore(storeId: string): Promise<ActionResult> {
-  // Step 1: Validate input
   const validation = storeActionSchema.safeParse({ storeId })
-  if (!validation.success) {
-    return { success: false, error: validation.error.errors[0]?.message }
-  }
+  if (!validation.success) return { success: false, error: validation.error.errors[0]?.message }
 
-  // Step 2: Verify admin
   const { isAdmin, error: adminError } = await verifyAdmin()
-  if (!isAdmin) {
-    return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
-  }
+  if (!isAdmin) return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
 
   const supabase = await createClient()
-
-  // Step 3: Update store
-  const { error: updateError } = await supabase
+  const { error } = await supabase
     .from("stores")
-    .update({
-      is_blocked: true,
-      status: "blocked",
-      updated_at: new Date().toISOString(),
-    })
+    .update({ is_blocked: true, status: "blocked", updated_at: new Date().toISOString() })
     .eq("id", storeId)
+    .eq("is_deleted", false)
 
-  if (updateError) {
-    console.error("[blockStore] Error:", updateError)
+  if (error) {
+    console.error("[blockStore]", error)
     return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
   }
 
-  // Step 4: Revalidate and return
   revalidatePath(ROUTES.ADMIN_STORES)
-
   return { success: true }
 }
 
-/**
- * Pause a store
- * - Store is hidden from public but not permanently blocked
- * - Used for temporary suspension (e.g., non-payment)
- */
+export async function unblockStore(storeId: string): Promise<ActionResult> {
+  const validation = storeActionSchema.safeParse({ storeId })
+  if (!validation.success) return { success: false, error: validation.error.errors[0]?.message }
+
+  const { isAdmin, error: adminError } = await verifyAdmin()
+  if (!isAdmin) return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
+
+  const supabase = await createClient()
+
+  const { data: store } = await supabase
+    .from("stores")
+    .select("status, subscription_ends_at")
+    .eq("id", storeId)
+    .single()
+
+  // Restore to appropriate status: if it had a subscription, go active; else trial
+  const prevStatus = store?.status === "blocked" ? "active" : store?.status ?? "active"
+  const newStatus = prevStatus === "blocked" ? "active" : prevStatus
+
+  const { error } = await supabase
+    .from("stores")
+    .update({ is_blocked: false, status: newStatus, updated_at: new Date().toISOString() })
+    .eq("id", storeId)
+
+  if (error) {
+    console.error("[unblockStore]", error)
+    return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
+  }
+
+  revalidatePath(ROUTES.ADMIN_STORES)
+  return { success: true }
+}
+
 export async function pauseStore(storeId: string): Promise<ActionResult> {
-  // Step 1: Validate input
   const validation = storeActionSchema.safeParse({ storeId })
-  if (!validation.success) {
-    return { success: false, error: validation.error.errors[0]?.message }
-  }
+  if (!validation.success) return { success: false, error: validation.error.errors[0]?.message }
 
-  // Step 2: Verify admin
   const { isAdmin, error: adminError } = await verifyAdmin()
-  if (!isAdmin) {
-    return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
-  }
+  if (!isAdmin) return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
 
   const supabase = await createClient()
-
-  // Step 3: Update store
-  const { error: updateError } = await supabase
+  const { error } = await supabase
     .from("stores")
-    .update({
-      status: "paused",
-      updated_at: new Date().toISOString(),
-    })
+    .update({ status: "paused", updated_at: new Date().toISOString() })
     .eq("id", storeId)
+    .eq("is_deleted", false)
 
-  if (updateError) {
-    console.error("[pauseStore] Error:", updateError)
+  if (error) {
+    console.error("[pauseStore]", error)
     return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
   }
 
-  // Step 4: Revalidate and return
   revalidatePath(ROUTES.ADMIN_STORES)
-
   return { success: true }
 }
 
-/**
- * Activate a store
- * - Sets status to 'active' and clears blocked flag
- * - Used when seller has paid or been reinstated
- */
 export async function activateStore(storeId: string): Promise<ActionResult> {
-  // Step 1: Validate input
   const validation = storeActionSchema.safeParse({ storeId })
-  if (!validation.success) {
-    return { success: false, error: validation.error.errors[0]?.message }
-  }
+  if (!validation.success) return { success: false, error: validation.error.errors[0]?.message }
 
-  // Step 2: Verify admin
   const { isAdmin, error: adminError } = await verifyAdmin()
-  if (!isAdmin) {
-    return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
-  }
+  if (!isAdmin) return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
 
   const supabase = await createClient()
-
-  // Step 3: Update store
-  const { error: updateError } = await supabase
+  const { error } = await supabase
     .from("stores")
-    .update({
-      is_blocked: false,
-      status: "active",
-      updated_at: new Date().toISOString(),
-    })
+    .update({ is_blocked: false, status: "active", updated_at: new Date().toISOString() })
     .eq("id", storeId)
+    .eq("is_deleted", false)
 
-  if (updateError) {
-    console.error("[activateStore] Error:", updateError)
+  if (error) {
+    console.error("[activateStore]", error)
     return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
   }
 
-  // Step 4: Revalidate and return
   revalidatePath(ROUTES.ADMIN_STORES)
-
   return { success: true }
 }
 
-/**
- * Extend a store's trial period
- * - Adds specified number of days to trial_ends_at
- * - Sets status back to 'trial' and clears blocked flag
- */
-export async function extendTrial(
-  storeId: string,
-  days: number
-): Promise<ActionResult> {
-  // Step 1: Validate input
-  const validation = extendTrialSchema.safeParse({ storeId, days })
-  if (!validation.success) {
-    return { success: false, error: validation.error.errors[0]?.message }
-  }
+// ============================================================
+// TRIAL & SUBSCRIPTION ACTIONS
+// ============================================================
 
-  // Step 2: Verify admin
+export async function extendTrial(storeId: string, days: number): Promise<ActionResult> {
+  const validation = extendTrialSchema.safeParse({ storeId, days })
+  if (!validation.success) return { success: false, error: validation.error.errors[0]?.message }
+
   const { isAdmin, error: adminError } = await verifyAdmin()
-  if (!isAdmin) {
-    return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
-  }
+  if (!isAdmin) return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
 
   const supabase = await createClient()
-
-  // Step 3: Get current store data
   const { data: store, error: fetchError } = await supabase
     .from("stores")
     .select("trial_ends_at")
     .eq("id", storeId)
     .single()
 
-  if (fetchError || !store) {
-    return { success: false, error: ERROR_MESSAGES.STORE_NOT_FOUND }
-  }
+  if (fetchError || !store) return { success: false, error: ERROR_MESSAGES.STORE_NOT_FOUND }
 
-  // Step 4: Calculate new trial end date
-  const currentEndDate = store.trial_ends_at
-    ? new Date(store.trial_ends_at)
-    : new Date()
-  const newEndDate = new Date(currentEndDate)
-  newEndDate.setDate(newEndDate.getDate() + days)
+  const base = store.trial_ends_at ? new Date(store.trial_ends_at) : new Date()
+  if (base < new Date()) base.setTime(new Date().getTime()) // extend from now if already expired
+  base.setDate(base.getDate() + days)
 
-  // Step 5: Update store
-  const { error: updateError } = await supabase
+  const { error } = await supabase
     .from("stores")
     .update({
-      trial_ends_at: newEndDate.toISOString(),
+      trial_ends_at: base.toISOString(),
       status: "trial",
       is_blocked: false,
       updated_at: new Date().toISOString(),
     })
     .eq("id", storeId)
 
-  if (updateError) {
-    console.error("[extendTrial] Error:", updateError)
+  if (error) {
+    console.error("[extendTrial]", error)
     return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
   }
 
-  // Step 6: Revalidate and return
   revalidatePath(ROUTES.ADMIN_STORES)
-
   return { success: true }
 }
 
-/**
- * Delete a store and all its data
- * - Deletes all products, analytics, and the store itself
- * - This action is irreversible
- */
-export async function deleteStore(storeId: string): Promise<ActionResult> {
-  // Step 1: Validate input
-  const validation = storeActionSchema.safeParse({ storeId })
-  if (!validation.success) {
-    return { success: false, error: validation.error.errors[0]?.message }
+export async function convertToRegular(
+  storeId: string,
+  days: number = SUBSCRIPTION_CONFIG.DEFAULT_DAYS
+): Promise<ActionResult> {
+  const validation = convertToRegularSchema.safeParse({ storeId, days })
+  if (!validation.success) return { success: false, error: validation.error.errors[0]?.message }
+
+  const { isAdmin, error: adminError } = await verifyAdmin()
+  if (!isAdmin) return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
+
+  const subscriptionEndsAt = new Date()
+  subscriptionEndsAt.setDate(subscriptionEndsAt.getDate() + days)
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from("stores")
+    .update({
+      status: "active",
+      is_blocked: false,
+      subscription_ends_at: subscriptionEndsAt.toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", storeId)
+    .eq("is_deleted", false)
+
+  if (error) {
+    console.error("[convertToRegular]", error)
+    return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
   }
 
-  // Step 2: Verify admin
+  revalidatePath(ROUTES.ADMIN_STORES)
+  return { success: true }
+}
+
+export async function setSubscription(storeId: string, days: number): Promise<ActionResult> {
+  const validation = convertToRegularSchema.safeParse({ storeId, days })
+  if (!validation.success) return { success: false, error: validation.error.errors[0]?.message }
+
   const { isAdmin, error: adminError } = await verifyAdmin()
-  if (!isAdmin) {
-    return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
+  if (!isAdmin) return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
+
+  const subscriptionEndsAt = new Date()
+  subscriptionEndsAt.setDate(subscriptionEndsAt.getDate() + days)
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from("stores")
+    .update({
+      subscription_ends_at: subscriptionEndsAt.toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", storeId)
+    .eq("is_deleted", false)
+
+  if (error) {
+    console.error("[setSubscription]", error)
+    return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
   }
+
+  revalidatePath(ROUTES.ADMIN_STORES)
+  return { success: true }
+}
+
+// ============================================================
+// PRODUCT ADMIN ACTIONS
+// ============================================================
+
+export async function toggleProductAdminHidden(productId: string): Promise<ActionResult> {
+  const validation = productAdminActionSchema.safeParse({ productId })
+  if (!validation.success) return { success: false, error: validation.error.errors[0]?.message }
+
+  const { isAdmin, error: adminError } = await verifyAdmin()
+  if (!isAdmin) return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
+
+  const supabase = await createClient()
+  const { data: product, error: fetchError } = await supabase
+    .from("products")
+    .select("admin_hidden, store_id")
+    .eq("id", productId)
+    .single()
+
+  if (fetchError || !product) return { success: false, error: ERROR_MESSAGES.PRODUCT_NOT_FOUND }
+
+  const { error } = await supabase
+    .from("products")
+    .update({ admin_hidden: !product.admin_hidden, updated_at: new Date().toISOString() })
+    .eq("id", productId)
+
+  if (error) {
+    console.error("[toggleProductAdminHidden]", error)
+    return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
+  }
+
+  revalidatePath(ROUTES.ADMIN_STORES)
+  revalidatePath(ROUTES.adminStoreDetail(product.store_id))
+  return { success: true, data: !product.admin_hidden as unknown as void }
+}
+
+// ============================================================
+// SOFT DELETE & RESTORE
+// ============================================================
+
+export async function softDeleteStore(storeId: string): Promise<ActionResult> {
+  const validation = storeActionSchema.safeParse({ storeId })
+  if (!validation.success) return { success: false, error: validation.error.errors[0]?.message }
+
+  const { isAdmin, error: adminError } = await verifyAdmin()
+  if (!isAdmin) return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
 
   const supabase = await createClient()
 
-  // Step 3: Delete products (CASCADE should handle this, but be explicit)
-  const { error: productsError } = await supabase
+  // Collect all product image URLs before deleting
+  const { data: products } = await supabase
     .from("products")
-    .delete()
+    .select("images")
     .eq("store_id", storeId)
 
-  if (productsError) {
-    console.error("[deleteStore] Products error:", productsError)
-    return { success: false, error: "Failed to delete store products" }
+  const { data: store } = await supabase
+    .from("stores")
+    .select("logo_url, banner_url")
+    .eq("id", storeId)
+    .single()
+
+  // Soft-delete the store
+  const { error } = await supabase
+    .from("stores")
+    .update({
+      is_deleted: true,
+      deleted_at: new Date().toISOString(),
+      status: "paused",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", storeId)
+
+  if (error) {
+    console.error("[softDeleteStore]", error)
+    return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
   }
 
-  // Step 4: Delete analytics events
+  // Delete Cloudinary images in background (non-blocking for UX)
+  const imageUrls: string[] = []
+  if (store?.logo_url) imageUrls.push(store.logo_url)
+  if (store?.banner_url) imageUrls.push(store.banner_url)
+  for (const p of products ?? []) {
+    if (Array.isArray(p.images)) imageUrls.push(...p.images)
+  }
+  // Fire-and-forget: deletion failure should not block the soft delete
+  deleteCloudinaryImages(imageUrls).catch((e) =>
+    console.error("[softDeleteStore] Cloudinary cleanup error:", e)
+  )
+
+  revalidatePath(ROUTES.ADMIN_STORES)
+  return { success: true }
+}
+
+export async function restoreStore(storeId: string): Promise<ActionResult> {
+  const validation = storeActionSchema.safeParse({ storeId })
+  if (!validation.success) return { success: false, error: validation.error.errors[0]?.message }
+
+  const { isAdmin, error: adminError } = await verifyAdmin()
+  if (!isAdmin) return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from("stores")
+    .update({
+      is_deleted: false,
+      deleted_at: null,
+      status: "paused",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", storeId)
+
+  if (error) {
+    console.error("[restoreStore]", error)
+    return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
+  }
+
+  revalidatePath(ROUTES.ADMIN_STORES)
+  return { success: true }
+}
+
+export async function purgeStore(storeId: string): Promise<ActionResult> {
+  const validation = storeActionSchema.safeParse({ storeId })
+  if (!validation.success) return { success: false, error: validation.error.errors[0]?.message }
+
+  const { isAdmin, error: adminError } = await verifyAdmin()
+  if (!isAdmin) return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
+
+  const supabase = await createClient()
+
+  const { error: deleteError } = await supabase.from("stores").delete().eq("id", storeId)
+
+  if (deleteError) {
+    console.error("[purgeStore]", deleteError)
+    return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
+  }
+
+  revalidatePath(ROUTES.ADMIN_STORES)
+  return { success: true }
+}
+
+// Keep old deleteStore as alias for purgeStore (hard delete, used for non-trashed stores)
+export async function deleteStore(storeId: string): Promise<ActionResult> {
+  const validation = storeActionSchema.safeParse({ storeId })
+  if (!validation.success) return { success: false, error: validation.error.errors[0]?.message }
+
+  const { isAdmin, error: adminError } = await verifyAdmin()
+  if (!isAdmin) return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
+
+  const supabase = await createClient()
+
+  // Collect images before deletion
+  const { data: products } = await supabase
+    .from("products")
+    .select("images")
+    .eq("store_id", storeId)
+
+  const { data: store } = await supabase
+    .from("stores")
+    .select("logo_url, banner_url")
+    .eq("id", storeId)
+    .single()
+
   const { error: analyticsError } = await supabase
     .from("analytics_events")
     .delete()
     .eq("store_id", storeId)
 
-  if (analyticsError) {
-    console.error("[deleteStore] Analytics error:", analyticsError)
-    // Don't fail on analytics deletion
-  }
+  if (analyticsError) console.error("[deleteStore] Analytics error:", analyticsError)
 
-  // Step 5: Delete store
-  const { error: deleteError } = await supabase
-    .from("stores")
-    .delete()
-    .eq("id", storeId)
+  const { error } = await supabase.from("stores").delete().eq("id", storeId)
 
-  if (deleteError) {
-    console.error("[deleteStore] Error:", deleteError)
+  if (error) {
+    console.error("[deleteStore]", error)
     return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
   }
 
-  // Step 6: Revalidate and return
-  revalidatePath(ROUTES.ADMIN_STORES)
+  const imageUrls: string[] = []
+  if (store?.logo_url) imageUrls.push(store.logo_url)
+  if (store?.banner_url) imageUrls.push(store.banner_url)
+  for (const p of products ?? []) {
+    if (Array.isArray(p.images)) imageUrls.push(...p.images)
+  }
+  deleteCloudinaryImages(imageUrls).catch((e) =>
+    console.error("[deleteStore] Cloudinary cleanup error:", e)
+  )
 
+  revalidatePath(ROUTES.ADMIN_STORES)
   return { success: true }
 }
 
@@ -311,105 +468,97 @@ export async function deleteStore(storeId: string): Promise<ActionResult> {
 // ADMIN DATA FETCHING
 // ============================================================
 
-/**
- * Get admin dashboard statistics
- */
 export async function getAdminStats(): Promise<{
   stats: AdminStats | null
   error: string | null
 }> {
   const { isAdmin, error: adminError } = await verifyAdmin()
-  if (!isAdmin) {
-    return { stats: null, error: adminError }
-  }
+  if (!isAdmin) return { stats: null, error: adminError }
 
   const supabase = await createClient()
 
-  // Fetch stores and products in parallel
   const [storesResult, productsResult] = await Promise.all([
-    supabase.from("stores").select("id, status, trial_ends_at, is_blocked"),
+    supabase
+      .from("stores")
+      .select("id, status, trial_ends_at, subscription_ends_at, is_blocked, is_deleted"),
     supabase.from("products").select("id", { count: "exact", head: true }),
   ])
 
-  const stores = storesResult.data || []
+  const allStores = storesResult.data || []
+  const activeStores = allStores.filter((s) => !s.is_deleted)
   const totalProducts = productsResult.count || 0
 
-  // Calculate expiring soon threshold
   const now = new Date()
-  const warningThreshold = new Date()
-  warningThreshold.setDate(now.getDate() + TRIAL_CONFIG.WARNING_DAYS)
+  const warningDate = new Date()
+  warningDate.setDate(now.getDate() + TRIAL_CONFIG.WARNING_DAYS)
 
-  // Calculate stats
+  const subWarningDate = new Date()
+  subWarningDate.setDate(now.getDate() + SUBSCRIPTION_CONFIG.WARNING_DAYS)
+
   const stats: AdminStats = {
-    totalSellers: stores.length,
-    totalStores: stores.length,
+    totalSellers: activeStores.length,
+    totalStores: activeStores.length,
     totalProducts,
-    activeStores: stores.filter(
-      (s) => s.status === "active" && !s.is_blocked
-    ).length,
-    trialStores: stores.filter((s) => s.status === "trial").length,
-    blockedStores: stores.filter(
-      (s) => s.is_blocked || s.status === "blocked"
-    ).length,
-    pausedStores: stores.filter((s) => s.status === "paused").length,
-    trialExpiringSoon: stores.filter((s) => {
+    activeStores: activeStores.filter((s) => s.status === "active" && !s.is_blocked).length,
+    trialStores: activeStores.filter((s) => s.status === "trial").length,
+    blockedStores: activeStores.filter((s) => s.is_blocked || s.status === "blocked").length,
+    pausedStores: activeStores.filter((s) => s.status === "paused").length,
+    trialExpiringSoon: activeStores.filter((s) => {
       if (s.status !== "trial" || !s.trial_ends_at) return false
-      const endDate = new Date(s.trial_ends_at)
-      return endDate <= warningThreshold && endDate >= now
+      const end = new Date(s.trial_ends_at)
+      return end <= warningDate && end >= now
     }).length,
+    subscriptionExpiringSoon: activeStores.filter((s) => {
+      if (s.status !== "active" || !s.subscription_ends_at) return false
+      const end = new Date(s.subscription_ends_at)
+      return end <= subWarningDate && end >= now
+    }).length,
+    trashedStores: allStores.filter((s) => s.is_deleted).length,
   }
 
   return { stats, error: null }
 }
 
-/**
- * Get all stores with product counts
- */
-export async function getAllStores(): Promise<{
+export async function getAllStores(includeTrashed = false): Promise<{
   stores: StoreWithProductCount[] | null
   error: string | null
 }> {
   const { isAdmin, error: adminError } = await verifyAdmin()
-  if (!isAdmin) {
-    return { stores: null, error: adminError }
-  }
+  if (!isAdmin) return { stores: null, error: adminError }
 
   const supabase = await createClient()
 
-  const { data: stores, error } = await supabase
+  let query = supabase
     .from("stores")
-    .select(
-      `
-      *,
-      products:products(count)
-    `
-    )
+    .select("*, products:products(count)")
     .order("created_at", { ascending: false })
 
+  if (!includeTrashed) {
+    query = query.eq("is_deleted", false)
+  } else {
+    query = query.eq("is_deleted", true)
+  }
+
+  const { data: stores, error } = await query
+
   if (error) {
-    console.error("[getAllStores] Error:", error)
+    console.error("[getAllStores]", error)
     return { stores: null, error: ERROR_MESSAGES.UNKNOWN_ERROR }
   }
 
   return { stores: stores as StoreWithProductCount[], error: null }
 }
 
-/**
- * Get a single store with all its products
- */
 export async function getStoreWithProducts(storeId: string): Promise<{
   store: Store | null
   products: Product[]
   error: string | null
 }> {
   const { isAdmin, error: adminError } = await verifyAdmin()
-  if (!isAdmin) {
-    return { store: null, products: [], error: adminError }
-  }
+  if (!isAdmin) return { store: null, products: [], error: adminError }
 
   const supabase = await createClient()
 
-  // Fetch store and products in parallel
   const [storeResult, productsResult] = await Promise.all([
     supabase.from("stores").select("*").eq("id", storeId).single(),
     supabase
@@ -430,32 +579,22 @@ export async function getStoreWithProducts(storeId: string): Promise<{
   }
 }
 
-/**
- * Get all products across all stores
- */
 export async function getAllProducts(): Promise<{
   products: ProductWithStore[] | null
   error: string | null
 }> {
   const { isAdmin, error: adminError } = await verifyAdmin()
-  if (!isAdmin) {
-    return { products: null, error: adminError }
-  }
+  if (!isAdmin) return { products: null, error: adminError }
 
   const supabase = await createClient()
 
   const { data: products, error } = await supabase
     .from("products")
-    .select(
-      `
-      *,
-      store:stores(id, name, slug)
-    `
-    )
+    .select("*, store:stores(id, name, slug)")
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("[getAllProducts] Error:", error)
+    console.error("[getAllProducts]", error)
     return { products: null, error: ERROR_MESSAGES.UNKNOWN_ERROR }
   }
 

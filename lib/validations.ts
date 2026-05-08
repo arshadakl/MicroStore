@@ -267,14 +267,28 @@ export const extendTrialSchema = z.object({
 
 export type ExtendTrialInput = z.infer<typeof extendTrialSchema>
 
-/**
- * Store action validation schema (for block, pause, activate, delete)
- */
 export const storeActionSchema = z.object({
   storeId: z.string().uuid("Invalid store ID"),
 })
 
 export type StoreActionInput = z.infer<typeof storeActionSchema>
+
+export const convertToRegularSchema = z.object({
+  storeId: z.string().uuid("Invalid store ID"),
+  days: z
+    .number()
+    .int()
+    .positive()
+    .max(3650, "Cannot set more than 3650 days"),
+})
+
+export type ConvertToRegularInput = z.infer<typeof convertToRegularSchema>
+
+export const productAdminActionSchema = z.object({
+  productId: z.string().uuid("Invalid product ID"),
+})
+
+export type ProductAdminActionInput = z.infer<typeof productAdminActionSchema>
 
 // ============================================================
 // UTILITY FUNCTIONS

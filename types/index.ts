@@ -16,7 +16,10 @@ export type Store = {
   theme_id: Theme
   status: StoreStatus
   trial_ends_at: string | null
+  subscription_ends_at: string | null
   is_blocked: boolean
+  is_deleted: boolean
+  deleted_at: string | null
   created_at: string
   updated_at: string | null
 }
@@ -49,6 +52,7 @@ export type Product = {
   images: string[]
   is_featured: boolean
   is_active: boolean
+  admin_hidden: boolean
   created_at: string
   updated_at: string | null
 }
@@ -149,9 +153,31 @@ export function getTrialDaysRemaining(trialEndsAt: string | null): number {
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
 }
 
+export function getSubscriptionDaysRemaining(subscriptionEndsAt: string | null): number {
+  if (!subscriptionEndsAt) return Infinity
+  const endDate = new Date(subscriptionEndsAt)
+  const now = new Date()
+  const diff = endDate.getTime() - now.getTime()
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
+}
+
 export function isTrialExpired(store: Store): boolean {
   if (store.status !== "trial") return false
   return getTrialDaysRemaining(store.trial_ends_at) <= 0
+}
+
+export function isSubscriptionExpired(store: Store): boolean {
+  if (store.status !== "active") return false
+  if (!store.subscription_ends_at) return false
+  return getSubscriptionDaysRemaining(store.subscription_ends_at) <= 0
+}
+
+export function getExpiryDaysRemaining(store: Store): number | null {
+  if (store.status === "trial") return getTrialDaysRemaining(store.trial_ends_at)
+  if (store.status === "active" && store.subscription_ends_at) {
+    return getSubscriptionDaysRemaining(store.subscription_ends_at)
+  }
+  return null
 }
 
 export function getStatusLabel(status: StoreStatus): string {

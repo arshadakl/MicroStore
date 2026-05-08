@@ -13,12 +13,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -26,111 +26,173 @@ import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/hooks/use-toast"
 import {
   blockStore,
+  unblockStore,
   pauseStore,
   activateStore,
   extendTrial,
-  deleteStore,
+  convertToRegular,
+  setSubscription,
+  softDeleteStore,
+  restoreStore,
+  purgeStore,
 } from "@/lib/actions/admin"
+import { SUBSCRIPTION_CONFIG } from "@/lib/constants"
 import {
   MoreHorizontal,
   Play,
   Pause,
   Ban,
+  ShieldCheck,
   Clock,
   Trash2,
+  RotateCcw,
+  Flame,
   ExternalLink,
+  Crown,
+  CalendarCheck,
 } from "lucide-react"
 
 interface AdminStoreActionsProps {
   store: Store
 }
 
+type DialogType =
+  | "extend-trial"
+  | "convert-regular"
+  | "set-subscription"
+  | "move-trash"
+  | "purge"
+  | null
+
 export function AdminStoreActions({ store }: AdminStoreActionsProps) {
   const router = useRouter()
   const [loading, setLoading] = useState<string | null>(null)
-  const [extendDays, setExtendDays] = useState("7")
-  const [showExtendDialog, setShowExtendDialog] = useState(false)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [openDialog, setOpenDialog] = useState<DialogType>(null)
+  const [trialDays, setTrialDays] = useState("7")
+  const [regularDays, setRegularDays] = useState(String(SUBSCRIPTION_CONFIG.DEFAULT_DAYS))
+  const [subDays, setSubDays] = useState(String(SUBSCRIPTION_CONFIG.DEFAULT_DAYS))
 
-  async function handleAction(
-    action: "block" | "pause" | "activate" | "delete",
-    actionFn: (storeId: string) => Promise<{ success: boolean; error?: string }>
+  const isDeleted = store.is_deleted
+  const isBlocked = store.is_blocked || store.status === "blocked"
+  const isPaused = store.status === "paused"
+  const isActive = store.status === "active"
+  const isTrial = store.status === "trial"
+
+  async function run<T>(
+    key: string,
+    fn: () => Promise<{ success: boolean; error?: string; data?: T }>,
+    successMsg: string,
+    afterSuccess?: () => void
   ) {
-    setLoading(action)
-    const result = await actionFn(store.id)
+    setLoading(key)
+    const result = await fn()
     setLoading(null)
 
     if (result.success) {
-      toast({
-        title: "Success",
-        description: `Store ${action}ed successfully`,
-      })
+      toast({ title: "Success", description: successMsg })
+      afterSuccess?.()
       router.refresh()
     } else {
-      toast({
-        title: "Error",
-        description: result.error || `Failed to ${action} store`,
-        variant: "destructive",
-      })
+      toast({ title: "Error", description: result.error || "Action failed", variant: "destructive" })
     }
   }
 
   async function handleExtendTrial() {
-    const days = parseInt(extendDays)
+    const days = parseInt(trialDays)
     if (isNaN(days) || days <= 0) {
-      toast({
-        title: "Error",
-        description: "Please enter a valid number of days",
-        variant: "destructive",
-      })
+      toast({ title: "Error", description: "Enter valid days", variant: "destructive" })
       return
     }
-
-    setLoading("extend")
-    const result = await extendTrial(store.id, days)
-    setLoading(null)
-    setShowExtendDialog(false)
-
-    if (result.success) {
-      toast({
-        title: "Success",
-        description: `Trial extended by ${days} days`,
-      })
-      router.refresh()
-    } else {
-      toast({
-        title: "Error",
-        description: result.error || "Failed to extend trial",
-        variant: "destructive",
-      })
-    }
+    await run("extend", () => extendTrial(store.id, days), `Trial extended by ${days} days`, () =>
+      setOpenDialog(null)
+    )
   }
 
-  async function handleDelete() {
-    setLoading("delete")
-    const result = await deleteStore(store.id)
-    setLoading(null)
-    setShowDeleteDialog(false)
+  async function handleConvertToRegular() {
+    const days = parseInt(regularDays)
+    if (isNaN(days) || days <= 0) {
+      toast({ title: "Error", description: "Enter valid days", variant: "destructive" })
+      return
+    }
+    await run(
+      "convert",
+      () => convertToRegular(store.id, days),
+      `Store converted to regular — active for ${days} days`,
+      () => setOpenDialog(null)
+    )
+  }
 
-    if (result.success) {
-      toast({
-        title: "Success",
-        description: "Store deleted successfully",
-      })
-      router.refresh()
+  async function handleSetSubscription() {
+    const days = parseInt(subDays)
+    if (isNaN(days) || days <= 0) {
+      toast({ title: "Error", description: "Enter valid days", variant: "destructive" })
+      return
+    }
+    await run(
+      "subscription",
+      () => setSubscription(store.id, days),
+      `Subscription set — ${days} days from today`,
+      () => setOpenDialog(null)
+    )
+  }
+
+  async function handleMoveToTrash() {
+    await run("trash", () => softDeleteStore(store.id), "Store moved to trash", () => {
+      setOpenDialog(null)
       router.push("/admin/stores")
-    } else {
-      toast({
-        title: "Error",
-        description: result.error || "Failed to delete store",
-        variant: "destructive",
-      })
-    }
+    })
   }
 
-  const isBlocked = store.is_blocked || store.status === "blocked"
-  const isPaused = store.status === "paused"
-  const isActive = store.status === "active" || store.status === "trial"
+  async function handlePurge() {
+    await run("purge", () => purgeStore(store.id), "Store permanently deleted", () => {
+      setOpenDialog(null)
+      router.push("/admin/stores?tab=trash")
+    })
+  }
+
+  if (isDeleted) {
+    return (
+      <>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={loading === "restore"}
+            onClick={() => run("restore", () => restoreStore(store.id), "Store restored from trash")}
+          >
+            {loading === "restore" ? <Spinner className="h-4 w-4" /> : <RotateCcw className="h-4 w-4 mr-1" />}
+            Restore
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setOpenDialog("purge")}
+          >
+            <Flame className="h-4 w-4 mr-1" />
+            Delete Forever
+          </Button>
+        </div>
+
+        <Dialog open={openDialog === "purge"} onOpenChange={(o) => !o && setOpenDialog(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Permanently Delete Store</DialogTitle>
+              <DialogDescription>
+                This will permanently delete <strong>{store.name}</strong> and all its data. This cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpenDialog(null)}>Cancel</Button>
+              <Button variant="destructive" onClick={handlePurge} disabled={loading === "purge"}>
+                {loading === "purge" ? <Spinner className="mr-2 h-4 w-4" /> : null}
+                Delete Forever
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    )
+  }
 
   return (
     <>
@@ -141,137 +203,198 @@ export function AdminStoreActions({ store }: AdminStoreActionsProps) {
             <span className="sr-only">Actions</span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="w-52">
           <DropdownMenuItem asChild>
-            <a
-              href={`/s/${store.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center"
-            >
+            <a href={`/s/${store.slug}`} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="mr-2 h-4 w-4" />
               View Storefront
             </a>
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
+          <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">Status</DropdownMenuLabel>
 
           {(isBlocked || isPaused) && (
             <DropdownMenuItem
-              onClick={() => handleAction("activate", activateStore)}
+              onClick={() => run("activate", () => activateStore(store.id), "Store activated")}
               disabled={loading === "activate"}
             >
-              <Play className="mr-2 h-4 w-4" />
-              {loading === "activate" ? "Activating..." : "Activate Store"}
+              <Play className="mr-2 h-4 w-4 text-green-600" />
+              Activate Store
             </DropdownMenuItem>
           )}
 
-          {isActive && (
+          {isBlocked && (
             <DropdownMenuItem
-              onClick={() => handleAction("pause", pauseStore)}
+              onClick={() => run("unblock", () => unblockStore(store.id), "Store unblocked")}
+              disabled={loading === "unblock"}
+            >
+              <ShieldCheck className="mr-2 h-4 w-4 text-green-600" />
+              Unblock Store
+            </DropdownMenuItem>
+          )}
+
+          {!isBlocked && (isActive || isTrial) && (
+            <DropdownMenuItem
+              onClick={() => run("pause", () => pauseStore(store.id), "Store paused")}
               disabled={loading === "pause"}
             >
               <Pause className="mr-2 h-4 w-4" />
-              {loading === "pause" ? "Pausing..." : "Pause Store"}
+              Pause Store
             </DropdownMenuItem>
           )}
 
           {!isBlocked && (
             <DropdownMenuItem
-              onClick={() => handleAction("block", blockStore)}
+              onClick={() => run("block", () => blockStore(store.id), "Store blocked")}
               disabled={loading === "block"}
               className="text-destructive focus:text-destructive"
             >
               <Ban className="mr-2 h-4 w-4" />
-              {loading === "block" ? "Blocking..." : "Block Store"}
+              Block Store
+            </DropdownMenuItem>
+          )}
+
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">Subscription</DropdownMenuLabel>
+
+          {(isTrial || isBlocked || isPaused) && (
+            <DropdownMenuItem onClick={() => setOpenDialog("extend-trial")}>
+              <Clock className="mr-2 h-4 w-4" />
+              Extend Trial
+            </DropdownMenuItem>
+          )}
+
+          <DropdownMenuItem onClick={() => setOpenDialog("convert-regular")}>
+            <Crown className="mr-2 h-4 w-4 text-amber-500" />
+            Convert to Regular
+          </DropdownMenuItem>
+
+          {isActive && (
+            <DropdownMenuItem onClick={() => setOpenDialog("set-subscription")}>
+              <CalendarCheck className="mr-2 h-4 w-4" />
+              Set Subscription
             </DropdownMenuItem>
           )}
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem onClick={() => setShowExtendDialog(true)}>
-            <Clock className="mr-2 h-4 w-4" />
-            Extend Trial
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-
           <DropdownMenuItem
-            onClick={() => setShowDeleteDialog(true)}
+            onClick={() => setOpenDialog("move-trash")}
             className="text-destructive focus:text-destructive"
           >
             <Trash2 className="mr-2 h-4 w-4" />
-            Delete Store
+            Move to Trash
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
       {/* Extend Trial Dialog */}
-      <Dialog open={showExtendDialog} onOpenChange={setShowExtendDialog}>
+      <Dialog open={openDialog === "extend-trial"} onOpenChange={(o) => !o && setOpenDialog(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Extend Trial</DialogTitle>
             <DialogDescription>
-              Extend the trial period for <strong>{store.name}</strong>.
+              Add days to the trial period for <strong>{store.name}</strong>.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="days">Number of days to extend</Label>
-              <Input
-                id="days"
-                type="number"
-                min="1"
-                max="365"
-                value={extendDays}
-                onChange={(e) => setExtendDays(e.target.value)}
-              />
-            </div>
+          <div className="space-y-2 py-4">
+            <Label htmlFor="trial-days">Days to add</Label>
+            <Input
+              id="trial-days"
+              type="number"
+              min="1"
+              max="365"
+              value={trialDays}
+              onChange={(e) => setTrialDays(e.target.value)}
+            />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowExtendDialog(false)}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setOpenDialog(null)}>Cancel</Button>
             <Button onClick={handleExtendTrial} disabled={loading === "extend"}>
-              {loading === "extend" ? (
-                <>
-                  <Spinner className="mr-2 h-4 w-4" />
-                  Extending...
-                </>
-              ) : (
-                "Extend Trial"
-              )}
+              {loading === "extend" && <Spinner className="mr-2 h-4 w-4" />}
+              Extend Trial
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      {/* Convert to Regular Dialog */}
+      <Dialog open={openDialog === "convert-regular"} onOpenChange={(o) => !o && setOpenDialog(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Store</DialogTitle>
+            <DialogTitle>Convert to Regular Store</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete <strong>{store.name}</strong>? This action cannot be undone. All products and analytics will be permanently deleted.
+              Move <strong>{store.name}</strong> from trial to a paid regular store.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            <Label htmlFor="regular-days">Active for (days)</Label>
+            <Input
+              id="regular-days"
+              type="number"
+              min="1"
+              max="3650"
+              value={regularDays}
+              onChange={(e) => setRegularDays(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">Default: {SUBSCRIPTION_CONFIG.DEFAULT_DAYS} days</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenDialog(null)}>Cancel</Button>
+            <Button onClick={handleConvertToRegular} disabled={loading === "convert"}>
+              {loading === "convert" && <Spinner className="mr-2 h-4 w-4" />}
+              Convert Store
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Set Subscription Dialog */}
+      <Dialog open={openDialog === "set-subscription"} onOpenChange={(o) => !o && setOpenDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set Subscription</DialogTitle>
+            <DialogDescription>
+              Set subscription end date for <strong>{store.name}</strong> (counted from today).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            <Label htmlFor="sub-days">Days from today</Label>
+            <Input
+              id="sub-days"
+              type="number"
+              min="1"
+              max="3650"
+              value={subDays}
+              onChange={(e) => setSubDays(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenDialog(null)}>Cancel</Button>
+            <Button onClick={handleSetSubscription} disabled={loading === "subscription"}>
+              {loading === "subscription" && <Spinner className="mr-2 h-4 w-4" />}
+              Set Subscription
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Move to Trash Dialog */}
+      <Dialog open={openDialog === "move-trash"} onOpenChange={(o) => !o && setOpenDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Move Store to Trash</DialogTitle>
+            <DialogDescription>
+              <strong>{store.name}</strong> will be moved to trash. All Cloudinary images will be deleted immediately.
+              The store record is kept for {SUBSCRIPTION_CONFIG.SOFT_DELETE_RETENTION_DAYS} days then permanently removed.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={loading === "delete"}
-            >
-              {loading === "delete" ? (
-                <>
-                  <Spinner className="mr-2 h-4 w-4" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete Store"
-              )}
+            <Button variant="outline" onClick={() => setOpenDialog(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleMoveToTrash} disabled={loading === "trash"}>
+              {loading === "trash" && <Spinner className="mr-2 h-4 w-4" />}
+              Move to Trash
             </Button>
           </DialogFooter>
         </DialogContent>

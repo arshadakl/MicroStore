@@ -2,9 +2,9 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { getAllStores } from "@/lib/actions/admin"
-import { getTrialDaysRemaining } from "@/types"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { getTrialDaysRemaining, getSubscriptionDaysRemaining } from "@/types"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import {
   Table,
   TableBody,
@@ -15,14 +15,23 @@ import {
 } from "@/components/ui/table"
 import { StoreStatusBadge } from "@/components/admin/StoreStatusBadge"
 import { AdminStoreActions } from "@/components/admin/AdminStoreActions"
-import { ExternalLink, Store } from "lucide-react"
+import { ExternalLink, Store, Trash2 } from "lucide-react"
 
-export default async function AdminStoresPage() {
+interface AdminStoresPageProps {
+  searchParams: Promise<{ tab?: string }>
+}
+
+export default async function AdminStoresPage({ searchParams }: AdminStoresPageProps) {
+  const { tab } = await searchParams
+  const isTrashed = tab === "trash"
+
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) redirect("/auth/login")
 
-  const { stores, error } = await getAllStores()
+  const { stores, error } = await getAllStores(isTrashed)
 
   if (error || !stores) {
     return (
@@ -37,10 +46,39 @@ export default async function AdminStoresPage() {
   return (
     <div className="px-4 py-6 sm:p-8 max-w-6xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">All Stores</h1>
+        <h1 className="text-2xl font-semibold text-foreground">
+          {isTrashed ? "Trashed Stores" : "All Stores"}
+        </h1>
         <p className="text-muted-foreground text-sm mt-0.5">
-          Manage all seller stores ({stores.length} total)
+          {isTrashed
+            ? `Stores pending deletion (${stores.length})`
+            : `Manage all seller stores (${stores.length} total)`}
         </p>
+      </div>
+
+      {/* Tab navigation */}
+      <div className="flex gap-2 border-b border-border">
+        <Link
+          href="/admin/stores"
+          className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors ${
+            !isTrashed
+              ? "border-foreground text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Active
+        </Link>
+        <Link
+          href="/admin/stores?tab=trash"
+          className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors flex items-center gap-1 ${
+            isTrashed
+              ? "border-foreground text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Trash
+        </Link>
       </div>
 
       <Card>
@@ -49,28 +87,43 @@ export default async function AdminStoresPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Store</TableHead>
-                <TableHead>Status</TableHead>
+                {!isTrashed && <TableHead>Status</TableHead>}
                 <TableHead>Products</TableHead>
-                <TableHead>Trial Ends</TableHead>
+                <TableHead>{isTrashed ? "Deleted On" : "Subscription / Trial"}</TableHead>
                 <TableHead>Created</TableHead>
-                <TableHead className="w-[70px]"></TableHead>
+                <TableHead className="w-[100px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {stores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={isTrashed ? 5 : 6} className="h-24 text-center">
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                      <Store className="w-8 h-8 opacity-40" />
-                      <p>No stores yet</p>
+                      {isTrashed ? (
+                        <>
+                          <Trash2 className="w-8 h-8 opacity-40" />
+                          <p>Trash is empty</p>
+                        </>
+                      ) : (
+                        <>
+                          <Store className="w-8 h-8 opacity-40" />
+                          <p>No stores yet</p>
+                        </>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
               ) : (
                 stores.map((store) => {
-                  const trialDays = store.status === "trial" 
-                    ? getTrialDaysRemaining(store.trial_ends_at) 
-                    : null
+                  const trialDays =
+                    store.status === "trial"
+                      ? getTrialDaysRemaining(store.trial_ends_at)
+                      : null
+
+                  const subDays =
+                    store.status === "active" && store.subscription_ends_at
+                      ? getSubscriptionDaysRemaining(store.subscription_ends_at)
+                      : null
 
                   return (
                     <TableRow key={store.id}>
@@ -82,49 +135,89 @@ export default async function AdminStoresPage() {
                             </span>
                           </div>
                           <div className="min-w-0">
-                            <Link 
+                            <Link
                               href={`/admin/stores/${store.id}`}
                               className="font-medium text-foreground hover:underline truncate block"
                             >
                               {store.name}
                             </Link>
-                            <p className="text-xs text-muted-foreground truncate">
-                              /s/{store.slug}
-                            </p>
+                            <p className="text-xs text-muted-foreground truncate">/s/{store.slug}</p>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <StoreStatusBadge status={store.status} isBlocked={store.is_blocked} />
-                      </TableCell>
+
+                      {!isTrashed && (
+                        <TableCell>
+                          <StoreStatusBadge status={store.status} isBlocked={store.is_blocked} />
+                        </TableCell>
+                      )}
+
                       <TableCell>
                         <span className="text-sm text-foreground">
                           {store.products?.[0]?.count ?? 0}
                         </span>
                       </TableCell>
+
                       <TableCell>
-                        {store.trial_ends_at ? (
+                        {isTrashed ? (
+                          <span className="text-sm text-muted-foreground">
+                            {store.deleted_at
+                              ? new Date(store.deleted_at).toLocaleDateString()
+                              : "-"}
+                          </span>
+                        ) : trialDays !== null ? (
                           <div className="text-sm">
-                            <span className={trialDays !== null && trialDays <= 3 ? "text-amber-600 font-medium" : "text-muted-foreground"}>
-                              {trialDays !== null && trialDays > 0 
-                                ? `${trialDays} days left`
-                                : trialDays === 0 
-                                  ? "Expires today"
-                                  : "Expired"
+                            <span
+                              className={
+                                trialDays <= 3
+                                  ? "text-amber-600 font-medium"
+                                  : "text-muted-foreground"
                               }
+                            >
+                              Trial:{" "}
+                              {trialDays > 0
+                                ? `${trialDays}d left`
+                                : trialDays === 0
+                                ? "expires today"
+                                : "expired"}
+                            </span>
+                          </div>
+                        ) : subDays !== null ? (
+                          <div className="text-sm">
+                            <span
+                              className={
+                                subDays <= 3 ? "text-amber-600 font-medium" : "text-muted-foreground"
+                              }
+                            >
+                              Sub: {subDays > 0 ? `${subDays}d left` : "expired"}
                             </span>
                           </div>
                         ) : (
                           <span className="text-sm text-muted-foreground">-</span>
                         )}
                       </TableCell>
+
                       <TableCell>
                         <span className="text-sm text-muted-foreground">
                           {new Date(store.created_at).toLocaleDateString()}
                         </span>
                       </TableCell>
+
                       <TableCell>
-                        <AdminStoreActions store={store} />
+                        <div className="flex items-center gap-1">
+                          {!isTrashed && (
+                            <a
+                              href={`/s/${store.slug}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-muted-foreground hover:text-foreground"
+                              title="View storefront"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                          )}
+                          <AdminStoreActions store={store} />
+                        </div>
                       </TableCell>
                     </TableRow>
                   )

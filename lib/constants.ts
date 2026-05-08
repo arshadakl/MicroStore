@@ -6,10 +6,14 @@
  * Trial configuration
  */
 export const TRIAL_CONFIG = {
-  /** Number of days for free trial */
   TRIAL_DAYS: 7,
-  /** Number of days before trial end to show warning */
   WARNING_DAYS: 3,
+} as const
+
+export const SUBSCRIPTION_CONFIG = {
+  DEFAULT_DAYS: 30,
+  WARNING_DAYS: 3,
+  SOFT_DELETE_RETENTION_DAYS: 60,
 } as const
 
 /**
@@ -186,4 +190,9 @@ export const SUCCESS_MESSAGES = {
   CATEGORY_CREATED: "Category created",
   CATEGORY_UPDATED: "Category updated",
   CATEGORY_DELETED: "Category deleted",
+} as const
+
+export const ERROR_MESSAGES_EXTRA = {
+  PRODUCT_NOT_FOUND: "Product not found",
+  STORE_IN_TRASH: "Store is in trash — restore it first",
 } as const
