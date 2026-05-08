@@ -160,7 +160,7 @@ export function DashboardSidebar({ store, userEmail, productCount }: DashboardSi
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-60 border-r border-border bg-sidebar flex-col shrink-0">
+      <aside className="hidden md:flex w-60 border-r border-border bg-sidebar flex-col shrink-0 sticky top-0 h-screen">
         <SidebarInner store={store} userEmail={userEmail} navItems={navItems} />
       </aside>
 
