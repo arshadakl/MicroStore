@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
+import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton"
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false)
@@ -82,7 +83,15 @@ export default function LoginPage() {
                 )}
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="password">Password</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  <Link
+                    href="/auth/forgot-password"
+                    className="text-xs text-muted-foreground hover:text-whatsapp transition-colors"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
                 <Input
                   id="password"
                   type="password"
@@ -116,6 +125,12 @@ export default function LoginPage() {
                   "Sign in"
                 )}
               </Button>
+              <div className="flex items-center gap-2 w-full">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-xs text-muted-foreground">or</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+              <GoogleAuthButton label="Sign in with Google" />
               <p className="text-sm text-muted-foreground text-center">
                 Don&apos;t have an account?{" "}
                 <Link href="/auth/sign-up" className="text-whatsapp font-medium hover:underline">

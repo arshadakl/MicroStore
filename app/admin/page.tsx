@@ -25,7 +25,7 @@ export default async function AdminPage() {
 
   if (error || !stats) {
     return (
-      <div className="p-8 max-w-4xl mx-auto">
+      <div className="px-4 py-6 sm:p-8 max-w-4xl mx-auto">
         <div className="text-center py-20">
           <p className="text-destructive">Failed to load admin stats: {error}</p>
         </div>
@@ -34,7 +34,7 @@ export default async function AdminPage() {
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-8">
+    <div className="px-4 py-6 sm:p-8 max-w-6xl mx-auto space-y-8">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Admin Dashboard</h1>
         <p className="text-muted-foreground text-sm mt-0.5">Overview of all stores and sellers</p>

@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/hooks/use-toast"
+import { ImageUploader } from "@/components/dashboard/ImageUploader"
 
 interface StoreSettingsFormProps {
   store: Store
@@ -43,6 +44,8 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
   })
 
   const watchedTheme = watch("themeId")
+  const watchedLogoUrl = watch("logoUrl") ?? ""
+  const watchedBannerUrl = watch("bannerUrl") ?? ""
 
   async function onSubmit(data: StoreSettingsInput) {
     setLoading(true)
@@ -68,7 +71,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-xl">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 w-full max-w-xl">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Store Info</CardTitle>
@@ -126,28 +129,32 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="logoUrl">Logo URL (optional)</Label>
-            <Input
-              id="logoUrl"
-              placeholder="https://example.com/logo.png"
-              aria-invalid={!!errors.logoUrl}
-              {...register("logoUrl")}
+            <Label>Logo (optional)</Label>
+            <ImageUploader
+              value={watchedLogoUrl ? [watchedLogoUrl] : []}
+              onChange={(urls) =>
+                setValue("logoUrl", urls[0] ?? "", { shouldValidate: true })
+              }
+              preset="logo"
+              maxImages={1}
+              disabled={loading}
             />
-            <p className="text-xs text-muted-foreground">Must be an HTTPS URL</p>
             {errors.logoUrl && (
               <p className="text-sm text-destructive">{errors.logoUrl.message}</p>
             )}
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="bannerUrl">Banner URL (optional)</Label>
-            <Input
-              id="bannerUrl"
-              placeholder="https://example.com/banner.jpg"
-              aria-invalid={!!errors.bannerUrl}
-              {...register("bannerUrl")}
+            <Label>Banner (optional)</Label>
+            <ImageUploader
+              value={watchedBannerUrl ? [watchedBannerUrl] : []}
+              onChange={(urls) =>
+                setValue("bannerUrl", urls[0] ?? "", { shouldValidate: true })
+              }
+              preset="banner"
+              maxImages={1}
+              disabled={loading}
             />
-            <p className="text-xs text-muted-foreground">Recommended size: 1200x400px</p>
             {errors.bannerUrl && (
               <p className="text-sm text-destructive">{errors.bannerUrl.message}</p>
             )}

@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: StoreLayoutProps): Promise<Me
 
   const { data: store } = await supabase
     .from("stores")
-    .select("name, tagline")
+    .select("name, tagline, logo_url, banner_url")
     .eq("slug", storeSlug)
     .single()
 
@@ -23,9 +23,23 @@ export async function generateMetadata({ params }: StoreLayoutProps): Promise<Me
     return { title: "Store Not Found" }
   }
 
+  const ogImage = store.banner_url || store.logo_url
+  const description = store.tagline || `Shop at ${store.name} - Order via WhatsApp`
+
   return {
     title: store.name,
-    description: store.tagline || `Shop at ${store.name} - Order via WhatsApp`,
+    description,
+    openGraph: {
+      title: store.name,
+      description,
+      ...(ogImage && { images: [{ url: ogImage, width: 1200, height: 630, alt: store.name }] }),
+    },
+    twitter: {
+      card: ogImage ? "summary_large_image" : "summary",
+      title: store.name,
+      description,
+      ...(ogImage && { images: [ogImage] }),
+    },
   }
 }
 

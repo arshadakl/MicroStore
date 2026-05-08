@@ -4,11 +4,12 @@ import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Package, ExternalLink, Plus, MessageCircle } from "lucide-react"
-import { StoreOnboarding } from "@/components/dashboard/StoreOnboarding"
+import { Package, ExternalLink, Plus, MessageCircle, Eye, Star } from "lucide-react"
+import { OnboardingModal } from "@/components/dashboard/OnboardingModal"
 import { CopyButton } from "@/components/dashboard/CopyButton"
 import { getStatusLabel, getStatusColor, getTrialDaysRemaining } from "@/types"
 import { ROUTES } from "@/lib/constants"
+import { cn } from "@/lib/utils"
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -32,21 +33,9 @@ export default async function DashboardPage() {
     ? await supabase.from("products").select("*").eq("store_id", store.id)
     : { data: [] }
 
-  // Show onboarding if no store
+  // Show onboarding modal if no store yet
   if (!store) {
-    return (
-      <div className="p-8 max-w-lg mx-auto">
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-foreground">
-            Welcome to MicroStore
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Let&apos;s set up your store in 2 minutes.
-          </p>
-        </div>
-        <StoreOnboarding />
-      </div>
-    )
+    return <OnboardingModal />
   }
 
   // Calculate stats
@@ -58,26 +47,26 @@ export default async function DashboardPage() {
     store.status === "trial" ? getTrialDaysRemaining(store.trial_ends_at) : null
 
   return (
-    <div className="p-8 max-w-4xl mx-auto space-y-8">
+    <div className="px-4 py-6 sm:p-8 max-w-4xl mx-auto space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">
+      <div className="flex flex-wrap items-start gap-3 justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold text-foreground truncate">
               {store.name}
             </h1>
             <p className="text-muted-foreground text-sm mt-0.5">
               Your store overview
             </p>
           </div>
-          <Badge className={getStatusColor(store.status)} variant="outline">
+          <Badge className={cn(getStatusColor(store.status), "shrink-0")} variant="outline">
             {getStatusLabel(store.status)}
             {trialDays !== null && trialDays > 0 && ` (${trialDays}d)`}
           </Badge>
         </div>
         <Button
           asChild
-          className="bg-whatsapp hover:bg-whatsapp-dark text-white gap-2"
+          className="bg-whatsapp hover:bg-whatsapp-dark text-white gap-2 shrink-0"
         >
           <Link href={ROUTES.DASHBOARD_PRODUCTS_NEW}>
             <Plus className="w-4 h-4" />
@@ -112,7 +101,7 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <Package className="w-5 h-5 text-green-500" />
+              <Eye className="w-5 h-5 text-green-500" />
               <span className="text-2xl font-bold text-foreground">
                 {activeCount}
               </span>
@@ -128,7 +117,7 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <Package className="w-5 h-5 text-amber-500" />
+              <Star className="w-5 h-5 text-amber-500" />
               <span className="text-2xl font-bold text-foreground">
                 {featuredCount}
               </span>
@@ -161,21 +150,23 @@ export default async function DashboardPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <code className="flex-1 text-sm bg-muted px-3 py-2 rounded-md text-muted-foreground break-all">
               {storeUrl}
             </code>
-            <CopyButton text={storeUrl} />
-            <Button variant="outline" size="sm" asChild className="shrink-0">
-              <a
-                href={ROUTES.storefront(store.slug)}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Open store in new tab"
-              >
-                <ExternalLink className="w-4 h-4" />
-              </a>
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              <CopyButton text={storeUrl} />
+              <Button variant="outline" size="sm" asChild>
+                <a
+                  href={ROUTES.storefront(store.slug)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Open store in new tab"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

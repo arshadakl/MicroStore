@@ -6,9 +6,10 @@ import { Package } from "lucide-react"
 interface ProductCardProps {
   product: Product
   storeSlug: string
+  categoryName?: string
 }
 
-export function ProductCard({ product, storeSlug }: ProductCardProps) {
+export function ProductCard({ product, storeSlug, categoryName }: ProductCardProps) {
   return (
     <Link
       href={`/s/${storeSlug}/${product.slug}`}
@@ -20,10 +21,7 @@ export function ProductCard({ product, storeSlug }: ProductCardProps) {
       }}
     >
       {/* Image */}
-      <div 
-        className="relative aspect-square"
-        style={{ backgroundColor: "var(--store-card-bg)" }}
-      >
+      <div className="relative aspect-square" style={{ backgroundColor: "var(--store-card-bg)" }}>
         {product.images?.[0] ? (
           <Image
             src={product.images[0]}
@@ -33,23 +31,31 @@ export function ProductCard({ product, storeSlug }: ProductCardProps) {
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
-            <Package className="w-8 h-8 store-text-muted" style={{ color: "var(--store-text-muted)", opacity: 0.4 }} />
+            <Package
+              className="w-8 h-8"
+              style={{ color: "var(--store-text-muted)", opacity: 0.4 }}
+            />
           </div>
         )}
       </div>
 
       {/* Info */}
-      <div className="p-3 space-y-0.5">
-        <p 
+      <div className="p-3 space-y-1">
+        {categoryName && (
+          <p
+            className="text-xs font-medium uppercase tracking-wide opacity-60"
+            style={{ color: "var(--store-text-muted)" }}
+          >
+            {categoryName}
+          </p>
+        )}
+        <p
           className="text-sm font-medium line-clamp-2 leading-snug"
           style={{ color: "var(--store-text)" }}
         >
           {product.title}
         </p>
-        <p 
-          className="text-sm font-semibold store-primary-text"
-          style={{ color: "var(--store-primary)" }}
-        >
+        <p className="text-sm font-semibold" style={{ color: "var(--store-primary)" }}>
           &#8377;{product.price.toLocaleString("en-IN")}
         </p>
       </div>

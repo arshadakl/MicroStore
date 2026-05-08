@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
+import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton"
 
 export default function SignUpPage() {
   const [loading, setLoading] = useState(false)
@@ -50,11 +51,6 @@ export default function SignUpPage() {
       password: data.password,
       options: {
         emailRedirectTo,
-        data: {
-          role: "seller",
-          pending_store_name: data.storeName,
-          pending_whatsapp_number: data.whatsappNumber,
-        },
       },
     })
 
@@ -102,6 +98,15 @@ export default function SignUpPage() {
           </Link>
           <h1 className="text-2xl font-semibold text-foreground">Create your store</h1>
           <p className="text-muted-foreground text-sm">Create your store and start selling on WhatsApp.</p>
+        </div>
+
+        <div className="space-y-3">
+          <GoogleAuthButton label="Sign up with Google" />
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-xs text-muted-foreground">or sign up with email</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
         </div>
 
         <Card className="border border-border shadow-sm">

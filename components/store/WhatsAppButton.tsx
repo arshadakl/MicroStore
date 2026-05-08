@@ -2,16 +2,27 @@
 
 import { MessageCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { trackWhatsAppClick } from "@/lib/actions/analytics"
 
 interface WhatsAppButtonProps {
   phone: string
   productTitle: string
   price: number
   productUrl: string
+  storeId: string
+  productId: string
 }
 
-export function WhatsAppButton({ phone, productTitle, price, productUrl }: WhatsAppButtonProps) {
+export function WhatsAppButton({
+  phone,
+  productTitle,
+  price,
+  productUrl,
+  storeId,
+  productId,
+}: WhatsAppButtonProps) {
   function handleClick() {
+    void trackWhatsAppClick(storeId, productId)
     const message = `I want to buy:\n\nProduct: ${productTitle}\nPrice: ₹${price.toLocaleString("en-IN")}\nLink: ${productUrl}`
     const url = `https://wa.me/${phone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`
     window.open(url, "_blank", "noopener,noreferrer")

@@ -13,6 +13,26 @@ export const TRIAL_CONFIG = {
 } as const
 
 /**
+ * Cloudinary upload limits (enforced client-side and via signed upload params)
+ */
+export const CLOUDINARY_UPLOAD_LIMITS = {
+  MAX_FILE_SIZE_BYTES: 5 * 1024 * 1024,
+  MAX_FILE_SIZE_MB: 5,
+  /** Formats sent to Cloudinary API — must stay in sync with ALLOWED_MIME_TYPES */
+  ALLOWED_FORMATS: "jpg,jpeg,png,webp,gif",
+  /** MIME types for the <input accept> attribute */
+  ALLOWED_MIME_TYPES: "image/jpeg,image/png,image/webp,image/gif",
+} as const
+
+/**
+ * Category limits
+ */
+export const CATEGORY_LIMITS = {
+  MAX_CATEGORIES_PER_STORE: 20,
+  MAX_NAME_LENGTH: 60,
+} as const
+
+/**
  * Product limits
  */
 export const PRODUCT_LIMITS = {
@@ -70,7 +90,6 @@ export type ThemeId = (typeof THEME_IDS)[number]
  * Store status values
  */
 export const STORE_STATUSES = ["trial", "active", "paused", "blocked"] as const
-export type StoreStatus = (typeof STORE_STATUSES)[number]
 
 /**
  * Analytics event types
@@ -98,11 +117,15 @@ export const ROUTES = {
   SIGN_UP: "/auth/sign-up",
   AUTH_CALLBACK: "/auth/callback",
   AUTH_ERROR: "/auth/error",
+  FORGOT_PASSWORD: "/auth/forgot-password",
+  RESET_PASSWORD: "/auth/reset-password",
 
   // Seller dashboard
   DASHBOARD: "/dashboard",
   DASHBOARD_PRODUCTS: "/dashboard/products",
   DASHBOARD_PRODUCTS_NEW: "/dashboard/products/new",
+  DASHBOARD_CATEGORIES: "/dashboard/categories",
+  DASHBOARD_ANALYTICS: "/dashboard/analytics",
   DASHBOARD_SETTINGS: "/dashboard/settings",
 
   // Admin
@@ -142,6 +165,10 @@ export const ERROR_MESSAGES = {
   PRODUCT_NOT_FOUND: "Product not found",
   PRODUCT_LIMIT_REACHED: "You have reached the maximum number of products",
 
+  // Category
+  CATEGORY_NOT_FOUND: "Category not found",
+  CATEGORY_LIMIT_REACHED: "You have reached the maximum number of categories (20)",
+
   // Generic
   UNKNOWN_ERROR: "An unexpected error occurred. Please try again.",
   VALIDATION_ERROR: "Please check your input and try again",
@@ -156,4 +183,7 @@ export const SUCCESS_MESSAGES = {
   PRODUCT_CREATED: "Product added successfully",
   PRODUCT_UPDATED: "Product updated",
   PRODUCT_DELETED: "Product deleted",
+  CATEGORY_CREATED: "Category created",
+  CATEGORY_UPDATED: "Category updated",
+  CATEGORY_DELETED: "Category deleted",
 } as const

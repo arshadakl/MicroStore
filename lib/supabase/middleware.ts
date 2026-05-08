@@ -62,7 +62,7 @@ export async function updateSession(request: NextRequest) {
   const isAdmin = isAdminUser(user)
 
   // Redirect away from auth routes if logged in
-  if (isAuthRoute && !pathname.startsWith("/auth/callback")) {
+  if (isAuthRoute && !pathname.startsWith("/auth/callback") && !pathname.startsWith("/auth/reset-password")) {
     url.pathname = isAdmin ? "/admin" : "/dashboard"
     return NextResponse.redirect(url)
   }

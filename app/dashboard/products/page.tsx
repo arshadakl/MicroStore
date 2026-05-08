@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
+import { getCategoriesByStoreId } from "@/lib/queries"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import { ProductListTable } from "@/components/dashboard/ProductListTable"
@@ -18,20 +19,23 @@ export default async function ProductsPage() {
 
   if (!store) redirect("/dashboard")
 
-  const { data: products } = await supabase
-    .from("products")
-    .select("*")
-    .eq("store_id", store.id)
-    .order("created_at", { ascending: false })
+  const [productsRes, categories] = await Promise.all([
+    supabase
+      .from("products")
+      .select("*")
+      .eq("store_id", store.id)
+      .order("created_at", { ascending: false }),
+    getCategoriesByStoreId(store.id),
+  ])
 
   return (
-    <div className="p-8 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="px-4 py-6 sm:p-8 max-w-4xl mx-auto space-y-6">
+      <div className="flex flex-wrap items-start gap-3 justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Products</h1>
           <p className="text-muted-foreground text-sm mt-0.5">Manage your product catalogue</p>
         </div>
-        <Button asChild className="bg-whatsapp hover:bg-whatsapp-dark text-white gap-2">
+        <Button asChild className="bg-whatsapp hover:bg-whatsapp-dark text-white gap-2 shrink-0">
           <Link href="/dashboard/products/new">
             <Plus className="w-4 h-4" />
             Add product
@@ -39,7 +43,11 @@ export default async function ProductsPage() {
         </Button>
       </div>
 
-      <ProductListTable products={products ?? []} storeSlug={store.slug} />
+      <ProductListTable
+        products={productsRes.data ?? []}
+        storeSlug={store.slug}
+        categories={categories}
+      />
     </div>
   )
 }

@@ -48,24 +48,24 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
     : null
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6">
+    <div className="px-4 py-6 sm:p-8 max-w-6xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
+      <div className="flex flex-wrap items-start gap-4 justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <Button variant="ghost" size="icon" asChild className="shrink-0">
             <Link href="/admin/stores">
               <ArrowLeft className="w-4 h-4" />
             </Link>
           </Button>
-          <div>
-            <div className="flex items-center gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-semibold text-foreground">{store.name}</h1>
               <StoreStatusBadge status={store.status} isBlocked={store.is_blocked} />
             </div>
             <p className="text-muted-foreground text-sm mt-0.5">/s/{store.slug}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
           <Button variant="outline" size="sm" asChild>
             <a href={`/s/${store.slug}`} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="w-4 h-4 mr-2" />
@@ -138,8 +138,8 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         <CardHeader>
           <CardTitle className="text-base">Products ({products?.length ?? 0})</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
-          <Table>
+        <CardContent className="p-0 overflow-x-auto">
+          <Table className="min-w-[500px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Product</TableHead>

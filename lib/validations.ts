@@ -3,6 +3,7 @@ import {
   VALIDATION_PATTERNS,
   PRODUCT_LIMITS,
   STORE_LIMITS,
+  CATEGORY_LIMITS,
   THEME_IDS,
 } from "@/lib/constants"
 
@@ -25,6 +26,22 @@ export const loginSchema = z.object({
 })
 
 export type LoginInput = z.infer<typeof loginSchema>
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().min(1, "Email is required").email("Please enter a valid email address"),
+})
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>
+
+export const resetPasswordSchema = z
+  .object({
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  })
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
 
 /**
  * Sign up form validation schema
@@ -207,9 +224,30 @@ export const productSchema = z.object({
     .default([]),
   isFeatured: z.boolean().default(false),
   isActive: z.boolean().default(true),
+  categoryId: z.string().uuid("Invalid category").nullable().optional(),
 })
 
 export type ProductInput = z.infer<typeof productSchema>
+
+// ============================================================
+// CATEGORY SCHEMAS
+// ============================================================
+
+export const categorySchema = z.object({
+  name: z
+    .string()
+    .min(1, "Category name is required")
+    .max(
+      CATEGORY_LIMITS.MAX_NAME_LENGTH,
+      `Category name must be less than ${CATEGORY_LIMITS.MAX_NAME_LENGTH} characters`
+    )
+    .regex(
+      VALIDATION_PATTERNS.SAFE_TEXT,
+      "Category name cannot contain special characters"
+    ),
+})
+
+export type CategoryInput = z.infer<typeof categorySchema>
 
 // ============================================================
 // ADMIN SCHEMAS
@@ -247,13 +285,7 @@ export type StoreActionInput = z.infer<typeof storeActionSchema>
  * Escapes HTML special characters
  */
 export function sanitizeString(input: string): string {
-  return input
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#x27;")
-    .trim()
+  return input.trim()
 }
 
 /**

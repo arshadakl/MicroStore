@@ -14,7 +14,9 @@ export async function GET(request: Request) {
   const code = searchParams.get("code")
   const tokenHash = searchParams.get("token_hash")
   const type = searchParams.get("type") as EmailOtpType | null
-  const next = searchParams.get("next") ?? "/dashboard"
+  // Validate next to prevent open redirects — must be a relative path
+  const rawNext = searchParams.get("next") ?? "/dashboard"
+  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/dashboard"
   const callbackError = searchParams.get("error")
   const callbackErrorDescription = searchParams.get("error_description")
 

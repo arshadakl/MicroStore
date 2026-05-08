@@ -140,7 +140,7 @@ export async function createStore(
       owner_id: user.id,
       name: sanitizeString(validation.data.name),
       slug,
-      whatsapp_number: validation.data.whatsappNumber,
+      whatsapp_number: sanitizeString(validation.data.whatsappNumber),
       status: "trial",
       trial_ends_at: trialEndsAt.toISOString(),
       is_blocked: false,
@@ -200,7 +200,7 @@ export async function updateStore(
     .from("stores")
     .update({
       name: sanitizeString(validation.data.name),
-      whatsapp_number: validation.data.whatsappNumber,
+      whatsapp_number: sanitizeString(validation.data.whatsappNumber),
       tagline: validation.data.tagline
         ? sanitizeString(validation.data.tagline)
         : null,

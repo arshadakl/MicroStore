@@ -52,7 +52,7 @@ export function BlockedStoreScreen({ store }: BlockedStoreScreenProps) {
               asChild
               className={isBlocked ? "bg-destructive hover:bg-destructive/90" : "bg-whatsapp hover:bg-whatsapp-dark"}
             >
-              <a href="mailto:support@microstore.com?subject=Store%20Issue%20-%20{store.name}">
+              <a href={`mailto:support@microstore.com?subject=Store%20Issue%20-%20${encodeURIComponent(store.name)}`}>
                 <Mail className="w-4 h-4 mr-2" />
                 Contact Support
               </a>

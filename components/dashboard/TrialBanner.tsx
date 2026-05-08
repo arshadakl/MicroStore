@@ -17,7 +17,7 @@ export function TrialBanner({ store }: TrialBannerProps) {
   if (isExpired) {
     return (
       <div className="bg-destructive/10 border-b border-destructive/20 px-4 py-3">
-        <div className="flex items-center gap-3 max-w-4xl mx-auto">
+        <div className="flex flex-wrap items-center gap-2 max-w-4xl mx-auto">
           <AlertTriangle className="w-5 h-5 text-destructive shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-destructive">

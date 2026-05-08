@@ -22,12 +22,26 @@ export type Store = {
 }
 
 // ============================================================
+// CATEGORY TYPES
+// ============================================================
+
+export type Category = {
+  id: string
+  store_id: string
+  name: string
+  slug: string
+  sort_order: number
+  created_at: string
+}
+
+// ============================================================
 // PRODUCT TYPES
 // ============================================================
 
 export type Product = {
   id: string
   store_id: string
+  category_id: string | null
   title: string
   slug: string
   price: number

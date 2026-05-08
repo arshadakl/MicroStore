@@ -8,7 +8,7 @@ import {
   sanitizeString,
   type ProductInput,
 } from "@/lib/validations"
-import { ERROR_MESSAGES, ROUTES } from "@/lib/constants"
+import { ERROR_MESSAGES, ROUTES, PRODUCT_LIMITS } from "@/lib/constants"
 
 // ============================================================
 // TYPES
@@ -56,7 +56,7 @@ async function getStoreForUser(userId: string) {
     return { store: null, error: ERROR_MESSAGES.STORE_NOT_FOUND }
   }
 
-  if (store.is_blocked || store.status === "blocked") {
+  if (store.is_blocked || store.status === "blocked" || store.status === "paused") {
     return { store: null, error: ERROR_MESSAGES.STORE_BLOCKED }
   }
 
@@ -120,7 +120,35 @@ export async function createProduct(
 
   const supabase = await createClient()
 
-  // Step 4: Generate unique slug within the store
+  // Step 4: Enforce product count limit (M3)
+  const { count: productCount } = await supabase
+    .from("products")
+    .select("*", { count: "exact", head: true })
+    .eq("store_id", store.id)
+
+  const limit =
+    store.status === "active"
+      ? PRODUCT_LIMITS.MAX_PRODUCTS_PAID
+      : PRODUCT_LIMITS.MAX_PRODUCTS_FREE
+
+  if ((productCount ?? 0) >= limit) {
+    return { success: false, error: ERROR_MESSAGES.PRODUCT_LIMIT_REACHED }
+  }
+
+  // Step 5: Verify category belongs to this store (if provided)
+  if (validation.data.categoryId) {
+    const { data: cat } = await supabase
+      .from("categories")
+      .select("id")
+      .eq("id", validation.data.categoryId)
+      .eq("store_id", store.id)
+      .single()
+    if (!cat) {
+      return { success: false, error: ERROR_MESSAGES.UNAUTHORIZED }
+    }
+  }
+
+  // Step 6: Generate unique slug within the store
   let slug = generateSlug(validation.data.title)
   let slugSuffix = 0
   let isSlugUnique = false
@@ -142,11 +170,12 @@ export async function createProduct(
     }
   }
 
-  // Step 5: Create product
+  // Step 6: Create product
   const { data: product, error: createError } = await supabase
     .from("products")
     .insert({
       store_id: store.id,
+      category_id: validation.data.categoryId ?? null,
       title: sanitizeString(validation.data.title),
       slug,
       description: validation.data.description
@@ -165,7 +194,7 @@ export async function createProduct(
     return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
   }
 
-  // Step 6: Revalidate and return
+  // Step 7: Revalidate and return
   revalidatePath(ROUTES.DASHBOARD_PRODUCTS)
 
   return {
@@ -212,10 +241,24 @@ export async function updateProduct(
 
   const supabase = await createClient()
 
-  // Step 5: Update product
+  // Step 5: Verify category belongs to this store (if provided)
+  if (validation.data.categoryId) {
+    const { data: cat } = await supabase
+      .from("categories")
+      .select("id")
+      .eq("id", validation.data.categoryId)
+      .eq("store_id", store.id)
+      .single()
+    if (!cat) {
+      return { success: false, error: ERROR_MESSAGES.UNAUTHORIZED }
+    }
+  }
+
+  // Step 6: Update product
   const { error: updateError } = await supabase
     .from("products")
     .update({
+      category_id: validation.data.categoryId ?? null,
       title: sanitizeString(validation.data.title),
       description: validation.data.description
         ? sanitizeString(validation.data.description)
@@ -233,7 +276,7 @@ export async function updateProduct(
     return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
   }
 
-  // Step 6: Revalidate and return
+  // Step 7: Revalidate and return
   revalidatePath(ROUTES.DASHBOARD_PRODUCTS)
 
   return { success: true }

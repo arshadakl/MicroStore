@@ -26,7 +26,7 @@ export default async function AdminStoresPage() {
 
   if (error || !stores) {
     return (
-      <div className="p-8 max-w-6xl mx-auto">
+      <div className="px-4 py-6 sm:p-8 max-w-6xl mx-auto">
         <div className="text-center py-20">
           <p className="text-destructive">Failed to load stores: {error}</p>
         </div>
@@ -35,7 +35,7 @@ export default async function AdminStoresPage() {
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6">
+    <div className="px-4 py-6 sm:p-8 max-w-6xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">All Stores</h1>
         <p className="text-muted-foreground text-sm mt-0.5">
@@ -44,8 +44,8 @@ export default async function AdminStoresPage() {
       </div>
 
       <Card>
-        <CardContent className="p-0">
-          <Table>
+        <CardContent className="p-0 overflow-x-auto">
+          <Table className="min-w-[640px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Store</TableHead>
