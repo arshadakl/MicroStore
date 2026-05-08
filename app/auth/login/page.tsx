@@ -110,7 +110,7 @@ export default function LoginPage() {
                 </div>
               )}
             </CardContent>
-            <CardFooter className="flex flex-col gap-3 pb-6">
+            <CardFooter className="flex flex-col gap-3 pt-2 pb-6">
               <Button
                 type="submit"
                 className="w-full bg-whatsapp hover:bg-whatsapp-dark text-white"

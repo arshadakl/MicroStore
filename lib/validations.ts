@@ -275,11 +275,10 @@ export type StoreActionInput = z.infer<typeof storeActionSchema>
 
 export const convertToRegularSchema = z.object({
   storeId: z.string().uuid("Invalid store ID"),
-  days: z
-    .number()
-    .int()
-    .positive()
-    .max(3650, "Cannot set more than 3650 days"),
+  endsAt: z
+    .string()
+    .min(1, "Select an end date")
+    .refine((v) => !isNaN(Date.parse(v)), "Invalid date"),
 })
 
 export type ConvertToRegularInput = z.infer<typeof convertToRegularSchema>

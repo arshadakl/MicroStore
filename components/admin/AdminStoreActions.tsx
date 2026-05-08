@@ -69,8 +69,16 @@ export function AdminStoreActions({ store }: AdminStoreActionsProps) {
   const [loading, setLoading] = useState<string | null>(null)
   const [openDialog, setOpenDialog] = useState<DialogType>(null)
   const [trialDays, setTrialDays] = useState("7")
-  const [regularDays, setRegularDays] = useState(String(SUBSCRIPTION_CONFIG.DEFAULT_DAYS))
-  const [subDays, setSubDays] = useState(String(SUBSCRIPTION_CONFIG.DEFAULT_DAYS))
+
+  function defaultEndDate(daysFromNow = SUBSCRIPTION_CONFIG.DEFAULT_DAYS) {
+    const d = new Date()
+    d.setDate(d.getDate() + daysFromNow)
+    return d.toISOString().slice(0, 10) // YYYY-MM-DD
+  }
+
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const [regularEndsAt, setRegularEndsAt] = useState(defaultEndDate)
+  const [subEndsAt, setSubEndsAt] = useState(defaultEndDate)
 
   const isDeleted = store.is_deleted
   const isBlocked = store.is_blocked || store.status === "blocked"
@@ -109,29 +117,27 @@ export function AdminStoreActions({ store }: AdminStoreActionsProps) {
   }
 
   async function handleConvertToRegular() {
-    const days = parseInt(regularDays)
-    if (isNaN(days) || days <= 0) {
-      toast({ title: "Error", description: "Enter valid days", variant: "destructive" })
+    if (!regularEndsAt) {
+      toast({ title: "Error", description: "Select an end date", variant: "destructive" })
       return
     }
     await run(
       "convert",
-      () => convertToRegular(store.id, days),
-      `Store converted to regular — active for ${days} days`,
+      () => convertToRegular(store.id, regularEndsAt),
+      `Store converted to regular — ends ${new Date(regularEndsAt).toLocaleDateString()}`,
       () => setOpenDialog(null)
     )
   }
 
   async function handleSetSubscription() {
-    const days = parseInt(subDays)
-    if (isNaN(days) || days <= 0) {
-      toast({ title: "Error", description: "Enter valid days", variant: "destructive" })
+    if (!subEndsAt) {
+      toast({ title: "Error", description: "Select an end date", variant: "destructive" })
       return
     }
     await run(
       "subscription",
-      () => setSubscription(store.id, days),
-      `Subscription set — ${days} days from today`,
+      () => setSubscription(store.id, subEndsAt),
+      `Subscription ends ${new Date(subEndsAt).toLocaleDateString()}`,
       () => setOpenDialog(null)
     )
   }
@@ -329,16 +335,14 @@ export function AdminStoreActions({ store }: AdminStoreActionsProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-4">
-            <Label htmlFor="regular-days">Active for (days)</Label>
+            <Label htmlFor="regular-ends-at">Subscription end date</Label>
             <Input
-              id="regular-days"
-              type="number"
-              min="1"
-              max="3650"
-              value={regularDays}
-              onChange={(e) => setRegularDays(e.target.value)}
+              id="regular-ends-at"
+              type="date"
+              min={todayStr}
+              value={regularEndsAt}
+              onChange={(e) => setRegularEndsAt(e.target.value)}
             />
-            <p className="text-xs text-muted-foreground">Default: {SUBSCRIPTION_CONFIG.DEFAULT_DAYS} days</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenDialog(null)}>Cancel</Button>
@@ -356,18 +360,17 @@ export function AdminStoreActions({ store }: AdminStoreActionsProps) {
           <DialogHeader>
             <DialogTitle>Set Subscription</DialogTitle>
             <DialogDescription>
-              Set subscription end date for <strong>{store.name}</strong> (counted from today).
+              Pick the date when <strong>{store.name}</strong>&apos;s subscription ends.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-4">
-            <Label htmlFor="sub-days">Days from today</Label>
+            <Label htmlFor="sub-ends-at">Subscription end date</Label>
             <Input
-              id="sub-days"
-              type="number"
-              min="1"
-              max="3650"
-              value={subDays}
-              onChange={(e) => setSubDays(e.target.value)}
+              id="sub-ends-at"
+              type="date"
+              min={todayStr}
+              value={subEndsAt}
+              onChange={(e) => setSubEndsAt(e.target.value)}
             />
           </div>
           <DialogFooter>

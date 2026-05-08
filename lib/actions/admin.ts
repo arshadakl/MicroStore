@@ -214,16 +214,13 @@ export async function extendTrial(storeId: string, days: number): Promise<Action
 
 export async function convertToRegular(
   storeId: string,
-  days: number = SUBSCRIPTION_CONFIG.DEFAULT_DAYS
+  endsAt: string
 ): Promise<ActionResult> {
-  const validation = convertToRegularSchema.safeParse({ storeId, days })
+  const validation = convertToRegularSchema.safeParse({ storeId, endsAt })
   if (!validation.success) return { success: false, error: validation.error.errors[0]?.message }
 
-  const { isAdmin, error: adminError } = await verifyAdmin()
-  if (!isAdmin) return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
-
-  const subscriptionEndsAt = new Date()
-  subscriptionEndsAt.setDate(subscriptionEndsAt.getDate() + days)
+  const subscriptionEndsAt = new Date(endsAt)
+  subscriptionEndsAt.setHours(23, 59, 59, 999)
 
   const supabase = await createClient()
   const { error } = await supabase
@@ -246,15 +243,12 @@ export async function convertToRegular(
   return { success: true }
 }
 
-export async function setSubscription(storeId: string, days: number): Promise<ActionResult> {
-  const validation = convertToRegularSchema.safeParse({ storeId, days })
+export async function setSubscription(storeId: string, endsAt: string): Promise<ActionResult> {
+  const validation = convertToRegularSchema.safeParse({ storeId, endsAt })
   if (!validation.success) return { success: false, error: validation.error.errors[0]?.message }
 
-  const { isAdmin, error: adminError } = await verifyAdmin()
-  if (!isAdmin) return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
-
-  const subscriptionEndsAt = new Date()
-  subscriptionEndsAt.setDate(subscriptionEndsAt.getDate() + days)
+  const subscriptionEndsAt = new Date(endsAt)
+  subscriptionEndsAt.setHours(23, 59, 59, 999)
 
   const supabase = await createClient()
   const { error } = await supabase
