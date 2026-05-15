@@ -136,6 +136,7 @@ export const ROUTES = {
   ADMIN: "/admin",
   ADMIN_STORES: "/admin/stores",
   ADMIN_PRODUCTS: "/admin/products",
+  ADMIN_USERS: "/admin/users",
 
   // Storefront (dynamic)
   storefront: (slug: string) => `/s/${slug}`,

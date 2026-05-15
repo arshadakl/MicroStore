@@ -1,6 +1,8 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
+import type { User as AuthUser } from "@supabase/supabase-js"
 import { revalidatePath } from "next/cache"
 import {
   extendTrialSchema,
@@ -38,6 +40,22 @@ export type AdminStats = {
 
 export type StoreWithProductCount = Store & {
   products: { count: number }[]
+}
+
+export type AdminUser = {
+  id: string
+  email: string
+  lastSignIn: string | null
+  joinedAt: string
+  store: {
+    id: string
+    name: string
+    slug: string
+    status: string
+    isBlocked: boolean
+    productCount: number
+    categoryCount: number
+  } | null
 }
 
 // ============================================================
@@ -219,6 +237,9 @@ export async function convertToRegular(
   const validation = convertToRegularSchema.safeParse({ storeId, endsAt })
   if (!validation.success) return { success: false, error: validation.error.errors[0]?.message }
 
+  const { isAdmin, error: adminError } = await verifyAdmin()
+  if (!isAdmin) return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
+
   const subscriptionEndsAt = new Date(endsAt)
   subscriptionEndsAt.setHours(23, 59, 59, 999)
 
@@ -246,6 +267,9 @@ export async function convertToRegular(
 export async function setSubscription(storeId: string, endsAt: string): Promise<ActionResult> {
   const validation = convertToRegularSchema.safeParse({ storeId, endsAt })
   if (!validation.success) return { success: false, error: validation.error.errors[0]?.message }
+
+  const { isAdmin, error: adminError } = await verifyAdmin()
+  if (!isAdmin) return { success: false, error: adminError || ERROR_MESSAGES.UNAUTHORIZED }
 
   const subscriptionEndsAt = new Date(endsAt)
   subscriptionEndsAt.setHours(23, 59, 59, 999)
@@ -593,4 +617,83 @@ export async function getAllProducts(): Promise<{
   }
 
   return { products: products as ProductWithStore[], error: null }
+}
+
+export async function getAllUsers(): Promise<{
+  users: AdminUser[] | null
+  error: string | null
+}> {
+  const { isAdmin, error: adminError } = await verifyAdmin()
+  if (!isAdmin) return { users: null, error: adminError }
+
+  const serviceClient = createServiceClient()
+
+  // Paginate auth.admin.listUsers — default perPage is 50, max is 1000.
+  // Loop until all pages fetched (up to 10 pages = 10 000 users).
+  const allAuthUsers: AuthUser[] = []
+  let page = 1
+  const perPage = 1000
+  while (page <= 10) {
+    const { data: authData, error: authError } = await serviceClient.auth.admin.listUsers({
+      page,
+      perPage,
+    })
+    if (authError) {
+      console.error("[getAllUsers] auth.admin.listUsers:", authError)
+      return { users: null, error: ERROR_MESSAGES.UNKNOWN_ERROR }
+    }
+    allAuthUsers.push(...authData.users)
+    if (authData.users.length < perPage) break
+    page++
+  }
+
+  const supabase = await createClient()
+  const { data: stores, error: storesError } = await supabase
+    .from("stores")
+    .select("id, owner_id, name, slug, status, is_blocked, products:products(count), categories:categories(count)")
+    .eq("is_deleted", false)
+    .not("owner_id", "is", null)
+
+  if (storesError) {
+    console.error("[getAllUsers] stores query:", storesError)
+    return { users: null, error: ERROR_MESSAGES.UNKNOWN_ERROR }
+  }
+
+  type StoreRow = NonNullable<typeof stores>[number]
+  const storeMap = new Map<string, StoreRow>()
+  for (const s of stores ?? []) {
+    if (s.owner_id) storeMap.set(s.owner_id, s)
+  }
+
+  const users: AdminUser[] = allAuthUsers.map((u) => {
+    const store = storeMap.get(u.id) ?? null
+    return {
+      id: u.id,
+      email: u.email ?? "(no email)",
+      lastSignIn: u.last_sign_in_at ?? null,
+      joinedAt: u.created_at,
+      store: store
+        ? {
+            id: store.id,
+            name: store.name,
+            slug: store.slug,
+            status: store.status,
+            isBlocked: store.is_blocked,
+            productCount: (store.products as { count: number }[])[0]?.count ?? 0,
+            categoryCount: (store.categories as { count: number }[])[0]?.count ?? 0,
+          }
+        : null,
+    }
+  })
+
+  users.sort((a, b) => {
+    const ta = new Date(a.joinedAt).getTime()
+    const tb = new Date(b.joinedAt).getTime()
+    if (isNaN(ta) && isNaN(tb)) return 0
+    if (isNaN(ta)) return 1
+    if (isNaN(tb)) return -1
+    return tb - ta
+  })
+
+  return { users, error: null }
 }

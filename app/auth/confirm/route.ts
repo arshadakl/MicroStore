@@ -13,7 +13,15 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const tokenHash = searchParams.get("token_hash")
   const type = searchParams.get("type") as EmailOtpType | null
-  const next = searchParams.get("next") ?? "/dashboard"
+  const rawNext = searchParams.get("next") ?? "/dashboard"
+  // Use URL parser to normalise before checking — blocks encoded bypasses like /%2F%2Fevil.com
+  let next = "/dashboard"
+  try {
+    const parsed = new URL(rawNext, origin)
+    if (parsed.origin === origin) next = parsed.pathname + parsed.search
+  } catch {
+    // malformed URL — keep default
+  }
 
   if (tokenHash && type) {
     const supabase = await createClient()

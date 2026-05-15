@@ -293,10 +293,7 @@ export type ProductAdminActionInput = z.infer<typeof productAdminActionSchema>
 // UTILITY FUNCTIONS
 // ============================================================
 
-/**
- * Sanitize a string to prevent XSS attacks
- * Escapes HTML special characters
- */
+// Trims whitespace before DB writes. XSS protection is handled by React's auto-escaping at render time.
 export function sanitizeString(input: string): string {
   return input.trim()
 }

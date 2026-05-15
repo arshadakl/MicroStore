@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   Store,
   Package,
+  Users,
   LogOut,
   Shield,
   Menu,
@@ -20,6 +21,7 @@ const navItems = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/stores", label: "Stores", icon: Store },
   { href: "/admin/products", label: "Products", icon: Package },
+  { href: "/admin/users", label: "Users", icon: Users },
 ]
 
 interface AdminSidebarProps {
