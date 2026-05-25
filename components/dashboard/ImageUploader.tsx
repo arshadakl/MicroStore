@@ -17,9 +17,9 @@ const PRESETS: Record<UploadPreset, {
   cropShape: "rect" | "round"
   hint: string
 }> = {
-  product: { aspectRatio: 1,   outputWidth: 800,  outputHeight: 800,  cropShape: "rect",  hint: "Square · 800×800px" },
-  logo:    { aspectRatio: 1,   outputWidth: 400,  outputHeight: 400,  cropShape: "round", hint: "Square · 400×400px" },
-  banner:  { aspectRatio: 3,   outputWidth: 1200, outputHeight: 400,  cropShape: "rect",  hint: "Wide · 1200×400px" },
+  product: { aspectRatio: 1,          outputWidth: 800, outputHeight: 800, cropShape: "rect",  hint: "Square · 800×800px" },
+  logo:    { aspectRatio: 1,          outputWidth: 400, outputHeight: 400, cropShape: "round", hint: "Square · 400×400px" },
+  banner:  { aspectRatio: 900 / 720,  outputWidth: 900, outputHeight: 720, cropShape: "rect",  hint: "Landscape · 900×720px" },
 }
 
 interface ImageUploaderProps {
@@ -212,7 +212,7 @@ export function ImageUploader({
                 key={url}
                 className={cn(
                   "group relative shrink-0 overflow-hidden rounded-md border bg-muted",
-                  preset === "banner" ? "h-16 w-48" : "h-20 w-20"
+                  preset === "banner" ? "h-16 w-20" : "h-20 w-20"
                 )}
               >
                 <img src={url} alt="" className="h-full w-full object-cover" />
@@ -235,7 +235,7 @@ export function ImageUploader({
                   key={item.localId}
                   className={cn(
                     "relative shrink-0 overflow-hidden rounded-md border bg-muted",
-                    preset === "banner" ? "h-16 w-48" : "h-20 w-20"
+                    preset === "banner" ? "h-16 w-20" : "h-20 w-20"
                   )}
                 >
                   {item.status === "uploading" ? (

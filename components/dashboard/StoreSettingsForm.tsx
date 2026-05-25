@@ -20,9 +20,10 @@ import { ImageUploader } from "@/components/dashboard/ImageUploader"
 
 interface StoreSettingsFormProps {
   store: Store
+  products?: { id: string; title: string; slug: string }[]
 }
 
-export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
+export function StoreSettingsForm({ store, products = [] }: StoreSettingsFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
@@ -40,6 +41,9 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
       tagline: store.tagline ?? "",
       logoUrl: store.logo_url ?? "",
       bannerUrl: store.banner_url ?? "",
+      bannerTitle: store.banner_title ?? "",
+      bannerSubtitle: store.banner_subtitle ?? "",
+      bannerLink: store.banner_link ?? "",
       themeId: store.theme_id,
     },
   })
@@ -47,6 +51,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
   const watchedTheme = watch("themeId")
   const watchedLogoUrl = watch("logoUrl") ?? ""
   const watchedBannerUrl = watch("bannerUrl") ?? ""
+  const watchedBannerLink = watch("bannerLink") ?? ""
 
   async function onSubmit(data: StoreSettingsInput) {
     setLoading(true)
@@ -126,9 +131,9 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Branding</CardTitle>
-          <CardDescription>Logo and banner for your store</CardDescription>
+          <CardDescription>Logo for your store</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           <div className="space-y-1.5">
             <Label>Logo (optional)</Label>
             <ImageUploader
@@ -144,9 +149,17 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
               <p className="text-sm text-destructive">{errors.logoUrl.message}</p>
             )}
           </div>
+        </CardContent>
+      </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Banner</CardTitle>
+          <CardDescription>Hero banner shown at the top of your store</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Banner (optional)</Label>
+            <Label>Banner Image (optional)</Label>
             <ImageUploader
               value={watchedBannerUrl ? [watchedBannerUrl] : []}
               onChange={(urls) =>
@@ -159,6 +172,53 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
             {errors.bannerUrl && (
               <p className="text-sm text-destructive">{errors.bannerUrl.message}</p>
             )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="bannerTitle">Banner Title (optional)</Label>
+            <Input
+              id="bannerTitle"
+              placeholder={`e.g. New Arrivals ✨`}
+              {...register("bannerTitle")}
+              disabled={loading}
+            />
+            <p className="text-xs text-muted-foreground">Defaults to your store name if left empty.</p>
+            {errors.bannerTitle && (
+              <p className="text-sm text-destructive">{errors.bannerTitle.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="bannerSubtitle">Banner Subtitle (optional)</Label>
+            <Input
+              id="bannerSubtitle"
+              placeholder="e.g. Fresh picks, just dropped"
+              {...register("bannerSubtitle")}
+              disabled={loading}
+            />
+            {errors.bannerSubtitle && (
+              <p className="text-sm text-destructive">{errors.bannerSubtitle.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="bannerLink">Banner Button Link (optional)</Label>
+            <select
+              id="bannerLink"
+              value={watchedBannerLink}
+              onChange={(e) => setValue("bannerLink", e.target.value)}
+              disabled={loading}
+              className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">No link (button hidden)</option>
+              <option value={`/s/${store.slug}/products`}>All Products page</option>
+              {products.map((p) => (
+                <option key={p.id} value={`/s/${store.slug}/${p.slug}`}>
+                  {p.title}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">Link opens when visitors click the banner button.</p>
           </div>
         </CardContent>
       </Card>

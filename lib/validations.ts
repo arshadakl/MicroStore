@@ -162,6 +162,9 @@ export const storeSettingsSchema = z.object({
     .regex(VALIDATION_PATTERNS.HTTPS_URL, "URL must use HTTPS")
     .optional()
     .or(z.literal("")),
+  bannerTitle: z.string().max(80, "Max 80 characters").optional().or(z.literal("")),
+  bannerSubtitle: z.string().max(150, "Max 150 characters").optional().or(z.literal("")),
+  bannerLink: z.string().optional().or(z.literal("")),
   themeId: z.enum(THEME_IDS).default("minimal"),
 })
 

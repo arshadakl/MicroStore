@@ -207,6 +207,9 @@ export async function updateStore(
         : null,
       logo_url: validation.data.logoUrl || null,
       banner_url: validation.data.bannerUrl || null,
+      banner_title: validation.data.bannerTitle ? sanitizeString(validation.data.bannerTitle) : null,
+      banner_subtitle: validation.data.bannerSubtitle ? sanitizeString(validation.data.bannerSubtitle) : null,
+      banner_link: validation.data.bannerLink || null,
       theme_id: validation.data.themeId,
       updated_at: new Date().toISOString(),
     })

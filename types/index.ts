@@ -12,6 +12,9 @@ export type Store = {
   tagline: string | null
   logo_url: string | null
   banner_url: string | null
+  banner_title: string | null
+  banner_subtitle: string | null
+  banner_link: string | null
   whatsapp_number: string
   theme_id: Theme
   status: StoreStatus

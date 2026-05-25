@@ -45,6 +45,32 @@ export default async function StorePage({ params }: StorePageProps) {
           </div>
         ) : hasCategorisedProducts ? (
           <>
+            {/* Featured Picks — above category sections */}
+            {(() => {
+              const featured = typedProducts.filter((p) => p.is_featured).slice(0, 4)
+              if (featured.length === 0) return null
+              return (
+                <section className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg" aria-hidden>✨</span>
+                    <h2 className="text-lg font-bold" style={{ color: "var(--store-text)" }}>
+                      Featured Picks
+                    </h2>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {featured.map((product) => (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        storeSlug={store.slug}
+                        categoryName={product.category_id ? categoryMap[product.category_id] : undefined}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )
+            })()}
+
             {typedCategories.map((cat) => {
               const catProducts = typedProducts
                 .filter((p) => p.category_id === cat.id)
