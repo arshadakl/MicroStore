@@ -1,8 +1,21 @@
 import { notFound } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { after } from "next/server"
+import { Nunito } from "next/font/google"
+import { getStoreBySlug } from "@/lib/queries"
 import { StoreNavbar } from "@/components/store/StoreNavbar"
+import { StoreFooter } from "@/components/store/StoreFooter"
 import { StoreUnavailable } from "@/components/store/StoreUnavailable"
+import { createPublicClient } from "@/lib/supabase/public"
+import { getThemeConfig, buildThemeCssVars } from "@/lib/themes"
 import type { Metadata } from "next"
+
+// Nunito: rounded, friendly — matches the soft pooki aesthetic of the minimal theme.
+// Declared at module level as required by next/font.
+const nunito = Nunito({ subsets: ["latin"], display: "swap" })
+
+// ISR: regenerate at most once per minute per store slug.
+// On-demand revalidation fires via revalidatePath() when seller updates store/products.
+export const revalidate = 60
 
 interface StoreLayoutProps {
   children: React.ReactNode
@@ -11,13 +24,8 @@ interface StoreLayoutProps {
 
 export async function generateMetadata({ params }: StoreLayoutProps): Promise<Metadata> {
   const { storeSlug } = await params
-  const supabase = await createClient()
-
-  const { data: store } = await supabase
-    .from("stores")
-    .select("name, tagline, logo_url, banner_url")
-    .eq("slug", storeSlug)
-    .single()
+  // getStoreBySlug is wrapped in React cache() — shared with StoreLayout below (1 DB query total)
+  const store = await getStoreBySlug(storeSlug)
 
   if (!store) {
     return { title: "Store Not Found" }
@@ -45,35 +53,43 @@ export async function generateMetadata({ params }: StoreLayoutProps): Promise<Me
 
 export default async function StoreLayout({ children, params }: StoreLayoutProps) {
   const { storeSlug } = await params
-  const supabase = await createClient()
-
-  const { data: store } = await supabase
-    .from("stores")
-    .select("*")
-    .eq("slug", storeSlug)
-    .single()
+  // Same cache() call — returns the memoized result from generateMetadata, no extra DB query
+  const store = await getStoreBySlug(storeSlug)
 
   if (!store) notFound()
 
-  // Check if store is blocked or paused
   if (store.is_blocked || store.status === "blocked" || store.status === "paused") {
     return <StoreUnavailable />
   }
 
-  // Apply theme via data attribute
-  const theme = store.theme_id || "minimal"
+  // Track store view after response is sent (reliable in serverless, non-blocking)
+  after(async () => {
+    const supabase = createPublicClient()
+    await supabase.from("analytics_events").insert({
+      store_id: store.id,
+      event_type: "view",
+    })
+  })
+
+  const themeId = store.theme_id || "minimal"
+  const themeConfig = getThemeConfig(themeId)
+  const cssVars = buildThemeCssVars(themeConfig.colors)
 
   return (
-    <div 
-      className="min-h-screen storefront-theme" 
-      data-theme={theme}
-      style={{
-        backgroundColor: "var(--store-bg)",
-        color: "var(--store-text)",
-      }}
-    >
-      <StoreNavbar store={store} theme={theme} />
-      {children}
-    </div>
+    <>
+      <style>{`[data-theme="${themeId}"]{${cssVars}}`}</style>
+      <div
+        className={`min-h-screen storefront-theme ${nunito.className}`}
+        data-theme={themeId}
+        style={{
+          backgroundColor: "var(--store-bg)",
+          color: "var(--store-text)",
+        }}
+      >
+        <StoreNavbar store={store} theme={themeId} />
+        {children}
+        <StoreFooter storeName={store.name} whatsappNumber={store.whatsapp_number} />
+      </div>
+    </>
   )
 }

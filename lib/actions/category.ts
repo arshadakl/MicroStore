@@ -29,7 +29,7 @@ async function getStoreForUser(userId: string) {
   const supabase = await createClient()
   const { data: store, error } = await supabase
     .from("stores")
-    .select("id, is_blocked, status")
+    .select("id, slug, is_blocked, status")
     .eq("owner_id", userId)
     .single()
 
@@ -42,6 +42,11 @@ async function getStoreForUser(userId: string) {
   }
 
   return { store, error: null }
+}
+
+function revalidateStorefront(storeSlug: string) {
+  revalidatePath(`/s/${storeSlug}`)
+  revalidatePath(`/s/${storeSlug}/products`)
 }
 
 export async function createCategory(
@@ -116,6 +121,7 @@ export async function createCategory(
 
   revalidatePath(ROUTES.DASHBOARD_CATEGORIES)
   revalidatePath(ROUTES.DASHBOARD_PRODUCTS)
+  revalidateStorefront(store.slug)
 
   return { success: true, data: { id: category.id, slug: category.slug } }
 }
@@ -167,6 +173,7 @@ export async function updateCategory(
 
   revalidatePath(ROUTES.DASHBOARD_CATEGORIES)
   revalidatePath(ROUTES.DASHBOARD_PRODUCTS)
+  revalidateStorefront(store.slug)
 
   return { success: true }
 }
@@ -207,6 +214,7 @@ export async function deleteCategory(categoryId: string): Promise<ActionResult> 
 
   revalidatePath(ROUTES.DASHBOARD_CATEGORIES)
   revalidatePath(ROUTES.DASHBOARD_PRODUCTS)
+  revalidateStorefront(store.slug)
 
   return { success: true }
 }

@@ -1,9 +1,13 @@
 import { notFound } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
-import { trackEvent } from "@/lib/queries"
+import { after } from "next/server"
+import Link from "next/link"
+import { getStoreBySlug, getProductBySlug } from "@/lib/queries"
+import { createPublicClient } from "@/lib/supabase/public"
 import { ImageGallery } from "@/components/store/ImageGallery"
 import { WhatsAppButton } from "@/components/store/WhatsAppButton"
 import type { Metadata } from "next"
+
+export const revalidate = 60
 
 interface ProductPageProps {
   params: Promise<{ storeSlug: string; productSlug: string }>
@@ -11,42 +15,31 @@ interface ProductPageProps {
 
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { storeSlug, productSlug } = await params
-  const supabase = await createClient()
 
-  const { data: store } = await supabase
-    .from("stores")
-    .select("id, name")
-    .eq("slug", storeSlug)
-    .single()
-
+  // cache()-memoized — shares result with ProductPage below (no extra DB queries)
+  const store = await getStoreBySlug(storeSlug)
   if (!store) return {}
 
-  const { data: product } = await supabase
-    .from("products")
-    .select("title, description, price, images")
-    .eq("store_id", store.id)
-    .eq("slug", productSlug)
-    .single()
+  const prod = await getProductBySlug(store.id, productSlug)
+  if (!prod) return {}
 
-  if (!product) return {}
-
-  const price = `₹${Number(product.price).toLocaleString("en-IN")}`
-  const description = product.description
-    ? `${product.description.slice(0, 150)} — ${price}`
+  const price = `₹${Number(prod.price).toLocaleString("en-IN")}`
+  const description = prod.description
+    ? `${prod.description.slice(0, 150)} — ${price}`
     : `${price} · Order via WhatsApp from ${store.name}`
-  const ogImage = product.images?.[0]
+  const ogImage = prod.images?.[0]
 
   return {
-    title: `${product.title} — ${store.name}`,
+    title: `${prod.title} — ${store.name}`,
     description,
     openGraph: {
-      title: `${product.title} — ${price}`,
+      title: `${prod.title} — ${price}`,
       description,
-      ...(ogImage && { images: [{ url: ogImage, width: 800, height: 800, alt: product.title }] }),
+      ...(ogImage && { images: [{ url: ogImage, width: 800, height: 800, alt: prod.title }] }),
     },
     twitter: {
       card: "summary_large_image",
-      title: `${product.title} — ${price}`,
+      title: `${prod.title} — ${price}`,
       description,
       ...(ogImage && { images: [ogImage] }),
     },
@@ -55,49 +48,67 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { storeSlug, productSlug } = await params
-  const supabase = await createClient()
 
-  const { data: store } = await supabase
-    .from("stores")
-    .select("*")
-    .eq("slug", storeSlug)
-    .single()
-
+  // cache()-memoized — layout, generateMetadata, and this function all share results
+  const store = await getStoreBySlug(storeSlug)
   if (!store) notFound()
 
-  const { data: product } = await supabase
-    .from("products")
-    .select("*")
-    .eq("store_id", store.id)
-    .eq("slug", productSlug)
-    .eq("is_active", true)
-    .single()
-
+  const product = await getProductBySlug(store.id, productSlug)
   if (!product) notFound()
 
-  void trackEvent(store.id, "product_view", product.id)
+  // Track product view after response is sent — non-blocking, reliable in serverless
+  after(async () => {
+    const supabase = createPublicClient()
+    await supabase.from("analytics_events").insert({
+      store_id: store.id,
+      product_id: product.id,
+      event_type: "product_view",
+    })
+  })
 
   const productUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/s/${storeSlug}/${productSlug}`
 
   return (
-    <main className="max-w-4xl mx-auto px-4 py-10">
+    <main className="max-w-4xl mx-auto px-4 py-8">
+      {/* Back link */}
+      <Link
+        href={`/s/${storeSlug}`}
+        className="inline-flex items-center gap-1 text-sm mb-6 transition-opacity hover:opacity-70"
+        style={{ color: "var(--store-text-muted)" }}
+      >
+        ← Back to store
+      </Link>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
         <ImageGallery images={product.images ?? []} title={product.title} />
 
-        <div className="space-y-6">
+        <div className="space-y-5">
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-foreground text-balance">{product.title}</h1>
-            <p className="text-3xl font-bold text-whatsapp">
+            <h1
+              className="font-bold leading-tight"
+              style={{
+                fontSize: "clamp(22px, 5vw, 32px)",
+                color: "var(--store-text)",
+              }}
+            >
+              {product.title}
+            </h1>
+            <p
+              className="font-extrabold"
+              style={{ fontSize: "clamp(24px, 5vw, 32px)", color: "var(--store-primary)" }}
+            >
               &#8377;{Number(product.price).toLocaleString("en-IN")}
             </p>
           </div>
 
           {product.description && (
-            <div className="space-y-1.5">
-              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
-                Description
-              </h2>
-              <p className="text-muted-foreground text-sm leading-relaxed">{product.description}</p>
+            <div>
+              <p
+                className="leading-relaxed"
+                style={{ fontSize: 15, lineHeight: 1.75, color: "var(--store-text-muted)" }}
+              >
+                {product.description}
+              </p>
             </div>
           )}
 

@@ -48,7 +48,7 @@ async function getStoreForUser(userId: string) {
   const supabase = await createClient()
   const { data: store, error } = await supabase
     .from("stores")
-    .select("id, is_blocked, status")
+    .select("id, slug, is_blocked, status")
     .eq("owner_id", userId)
     .single()
 
@@ -61,6 +61,11 @@ async function getStoreForUser(userId: string) {
   }
 
   return { store, error: null }
+}
+
+function revalidateStorefront(storeSlug: string) {
+  revalidatePath(`/s/${storeSlug}`)
+  revalidatePath(`/s/${storeSlug}/products`)
 }
 
 /**
@@ -194,8 +199,9 @@ export async function createProduct(
     return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
   }
 
-  // Step 7: Revalidate and return
+  // Step 7: Revalidate dashboard + storefront ISR cache
   revalidatePath(ROUTES.DASHBOARD_PRODUCTS)
+  revalidateStorefront(store.slug)
 
   return {
     success: true,
@@ -276,8 +282,9 @@ export async function updateProduct(
     return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
   }
 
-  // Step 7: Revalidate and return
+  // Step 7: Revalidate dashboard + storefront ISR cache
   revalidatePath(ROUTES.DASHBOARD_PRODUCTS)
+  revalidateStorefront(store.slug)
 
   return { success: true }
 }
@@ -318,8 +325,9 @@ export async function deleteProduct(productId: string): Promise<ActionResult> {
     return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
   }
 
-  // Step 5: Revalidate and return
+  // Step 5: Revalidate dashboard + storefront ISR cache
   revalidatePath(ROUTES.DASHBOARD_PRODUCTS)
+  revalidateStorefront(store.slug)
 
   return { success: true }
 }
@@ -365,8 +373,9 @@ export async function toggleProductFeatured(
     return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
   }
 
-  // Step 5: Revalidate and return
+  // Step 5: Revalidate dashboard + storefront ISR cache
   revalidatePath(ROUTES.DASHBOARD_PRODUCTS)
+  revalidateStorefront(store.slug)
 
   return { success: true }
 }
@@ -412,8 +421,9 @@ export async function toggleProductActive(
     return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
   }
 
-  // Step 5: Revalidate and return
+  // Step 5: Revalidate dashboard + storefront ISR cache
   revalidatePath(ROUTES.DASHBOARD_PRODUCTS)
+  revalidateStorefront(store.slug)
 
   return { success: true }
 }

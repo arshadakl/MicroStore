@@ -6,7 +6,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  // Only run middleware on routes that need auth. Storefront (/s/*), landing (/),
+  // and API routes handle their own auth — excluding them eliminates a Supabase
+  // auth.getUser() network call on every anonymous storefront request.
+  matcher: ["/dashboard/:path*", "/admin/:path*", "/auth/:path*"],
 }

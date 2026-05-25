@@ -51,19 +51,19 @@ async function getAuthenticatedUser() {
 async function verifyStoreOwnership(
   storeId: string,
   userId: string
-): Promise<boolean> {
+): Promise<{ isOwner: boolean; slug?: string }> {
   const supabase = await createClient()
   const { data: store } = await supabase
     .from("stores")
-    .select("id, owner_id")
+    .select("id, owner_id, slug")
     .eq("id", storeId)
     .single()
 
   if (!store || store.owner_id !== userId) {
-    return false
+    return { isOwner: false }
   }
 
-  return true
+  return { isOwner: true, slug: store.slug }
 }
 
 // ============================================================
@@ -156,6 +156,7 @@ export async function createStore(
 
   // Step 7: Revalidate and return
   revalidatePath(ROUTES.DASHBOARD)
+  revalidatePath(`/s/${store.slug}`)
 
   return {
     success: true,
@@ -188,7 +189,7 @@ export async function updateStore(
   }
 
   // Step 3: Verify ownership
-  const isOwner = await verifyStoreOwnership(storeId, user.id)
+  const { isOwner, slug: storeSlug } = await verifyStoreOwnership(storeId, user.id)
   if (!isOwner) {
     return { success: false, error: ERROR_MESSAGES.UNAUTHORIZED }
   }
@@ -216,9 +217,10 @@ export async function updateStore(
     return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
   }
 
-  // Step 5: Revalidate and return
+  // Step 5: Revalidate dashboard + storefront ISR cache
   revalidatePath(ROUTES.DASHBOARD)
   revalidatePath(ROUTES.DASHBOARD_SETTINGS)
+  if (storeSlug) revalidatePath(`/s/${storeSlug}`)
 
   return { success: true }
 }

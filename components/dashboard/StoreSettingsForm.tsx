@@ -6,7 +6,8 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { storeSettingsSchema, type StoreSettingsInput } from "@/lib/validations"
 import { updateStore } from "@/lib/actions/store"
-import { Store, Theme, THEMES } from "@/types"
+import { getAllThemes } from "@/lib/themes"
+import type { Store } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -170,10 +171,10 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
         <CardContent>
           <RadioGroup
             value={watchedTheme}
-            onValueChange={(val) => setValue("themeId", val as Theme)}
+            onValueChange={(val) => setValue("themeId", val)}
             className="space-y-3"
           >
-            {Object.values(THEMES).map((theme) => (
+            {getAllThemes().map((theme) => (
               <div
                 key={theme.id}
                 className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${

@@ -15,7 +15,9 @@ export function StoreNavbar({ store, theme = "minimal" }: StoreNavbarProps) {
     <header
       className="store-border border-b sticky top-0 z-40"
       style={{
-        backgroundColor: "var(--store-bg)",
+        background: "var(--store-navbar-bg, var(--store-bg))",
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
         borderColor: "var(--store-border)",
       }}
     >

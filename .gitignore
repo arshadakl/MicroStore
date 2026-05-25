@@ -7,10 +7,20 @@ __v0_jsx-dev-runtime.ts
 .vercel/
 next.user-config.*
 
-# Environment variables
+# Environment variables — never commit secrets
+.env
+.env.*
 .env*.local
 
 # Common ignores
 node_modules
 .next/
 .DS_Store
+
+# Build artifacts
+tsconfig.tsbuildinfo
+
+# AI tool local configs (machine-specific, may contain secrets/refs)
+.mcp.json
+.claude/
+.codex/

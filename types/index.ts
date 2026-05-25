@@ -91,55 +91,12 @@ export type UserMetadata = {
 // THEME TYPES
 // ============================================================
 
-export type Theme = "minimal" | "modern" | "luxury"
+// Theme is a string — validated against THEME_IDS in lib/constants.ts
+// Config and registry live in lib/themes/index.ts
+export type Theme = string
 
-export type ThemeConfig = {
-  id: Theme
-  name: string
-  description: string
-  primaryColor: string
-  accentColor: string
-  bgColor: string
-  textColor: string
-  cardBg: string
-  buttonRadius: string
-}
-
-export const THEMES: Record<Theme, ThemeConfig> = {
-  minimal: {
-    id: "minimal",
-    name: "Minimal",
-    description: "Clean and simple white design",
-    primaryColor: "#25D366",
-    accentColor: "#128C7E",
-    bgColor: "#ffffff",
-    textColor: "#1a1a1a",
-    cardBg: "#f9fafb",
-    buttonRadius: "rounded-lg",
-  },
-  modern: {
-    id: "modern",
-    name: "Modern",
-    description: "Bold with teal accents",
-    primaryColor: "#14b8a6",
-    accentColor: "#0d9488",
-    bgColor: "#f0fdfa",
-    textColor: "#134e4a",
-    cardBg: "#ffffff",
-    buttonRadius: "rounded-full",
-  },
-  luxury: {
-    id: "luxury",
-    name: "Luxury",
-    description: "Dark and elegant with gold",
-    primaryColor: "#d4af37",
-    accentColor: "#b8960c",
-    bgColor: "#1a1a1a",
-    textColor: "#f5f5f5",
-    cardBg: "#2d2d2d",
-    buttonRadius: "rounded-none",
-  },
-}
+export type { StoreThemeConfig as ThemeConfig } from "@/lib/themes"
+export { getAllThemes, getThemeConfig } from "@/lib/themes"
 
 // ============================================================
 // HELPER FUNCTIONS

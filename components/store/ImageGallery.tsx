@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Image from "next/image"
 import { Package, X, ChevronLeft, ChevronRight } from "lucide-react"
+import { cloudinaryResize } from "@/lib/cloudinary"
 
 interface ImageGalleryProps {
   images: string[]
@@ -40,7 +41,7 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
           className="relative aspect-square rounded-xl overflow-hidden bg-muted cursor-zoom-in"
           onClick={() => setLightboxOpen(true)}
         >
-          <Image src={images[selected]} alt={title} fill className="object-cover" priority />
+          <Image src={cloudinaryResize(images[selected], 800)} alt={title} fill className="object-cover" priority />
           <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/10">
             <span className="text-white text-xs font-medium bg-black/50 px-2 py-1 rounded">
               Click to zoom
@@ -54,13 +55,12 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
               <button
                 key={i}
                 onClick={() => setSelected(i)}
-                className={`relative w-16 h-16 rounded-md overflow-hidden shrink-0 border-2 transition-colors ${
-                  i === selected
-                    ? "border-whatsapp"
-                    : "border-border hover:border-muted-foreground"
+                className={`relative w-16 h-16 rounded-xl overflow-hidden shrink-0 border-2 transition-colors ${
+                  i !== selected ? "border-border hover:border-muted-foreground" : ""
                 }`}
+                style={i === selected ? { borderColor: "var(--store-primary, #25D366)" } : {}}
               >
-                <Image src={img} alt={`${title} ${i + 1}`} fill className="object-cover" />
+                <Image src={cloudinaryResize(img, 128)} alt={`${title} ${i + 1}`} fill className="object-cover" />
               </button>
             ))}
           </div>
