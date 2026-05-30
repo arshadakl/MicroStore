@@ -4,6 +4,14 @@
 
 export type StoreStatus = "trial" | "active" | "paused" | "blocked"
 
+export type StoreBanner = {
+  id: string
+  image_url: string
+  title: string
+  subtitle: string
+  link: string
+}
+
 export type Store = {
   id: string
   owner_id: string
@@ -11,10 +19,7 @@ export type Store = {
   slug: string
   tagline: string | null
   logo_url: string | null
-  banner_url: string | null
-  banner_title: string | null
-  banner_subtitle: string | null
-  banner_link: string | null
+  banners: StoreBanner[]
   whatsapp_number: string
   theme_id: Theme
   status: StoreStatus

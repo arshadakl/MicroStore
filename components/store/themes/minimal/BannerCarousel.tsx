@@ -4,46 +4,38 @@ import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { cloudinaryResize } from "@/lib/cloudinary"
-import type { Store } from "@/types"
+import type { Store, StoreBanner } from "@/types"
 
 interface BannerCarouselProps {
   store: Store
   storeSlug: string
 }
 
-interface Slide {
-  bg: string
-  deco: string
-  heading: string
-  sub: string
-  link: string
+const BG_PALETTE = [
+  "linear-gradient(135deg,#f9dde2 0%,#fce8eb 45%,#faf0f2 100%)",
+  "linear-gradient(135deg,#c8dfca 0%,#e0f0df 45%,#edf8ed 100%)",
+  "linear-gradient(135deg,#ddd0f0 0%,#ede4f8 45%,#f5f0fc 100%)",
+]
+const DECO_PALETTE = ["✿", "✦", "◎"]
+
+const FALLBACK: StoreBanner = {
+  id: "fallback",
+  image_url: "",
+  title: "",
+  subtitle: "",
+  link: "",
 }
 
-const SLIDE_TEMPLATES = [
-  { bg: "linear-gradient(135deg,#f9dde2 0%,#fce8eb 45%,#faf0f2 100%)", deco: "✿", heading: "", sub: "" },
-  { bg: "linear-gradient(135deg,#c8dfca 0%,#e0f0df 45%,#edf8ed 100%)", deco: "✦", heading: "New Arrivals ✦", sub: "Fresh picks, just dropped" },
-  { bg: "linear-gradient(135deg,#ddd0f0 0%,#ede4f8 45%,#f5f0fc 100%)", deco: "◎", heading: "Made with Love ♡", sub: "Pieces that tell your story" },
-]
-
 export function BannerCarousel({ store, storeSlug }: BannerCarouselProps) {
+  const banners = store.banners?.length ? store.banners : [FALLBACK]
   const [current, setCurrent] = useState(0)
   const touchStartX = useRef<number | null>(null)
 
-  const slides: Slide[] = SLIDE_TEMPLATES.map((s, i) =>
-    i === 0
-      ? {
-          ...s,
-          heading: store.banner_title || store.name,
-          sub: store.banner_subtitle || store.tagline || "Shop our collection",
-          link: store.banner_link || `/s/${storeSlug}/products`,
-        }
-      : { ...s, link: `/s/${storeSlug}/products` }
-  )
-
   useEffect(() => {
-    const timer = setInterval(() => setCurrent((c) => (c + 1) % slides.length), 4000)
+    if (banners.length <= 1) return
+    const timer = setInterval(() => setCurrent((c) => (c + 1) % banners.length), 4000)
     return () => clearInterval(timer)
-  }, [slides.length])
+  }, [banners.length])
 
   function onTouchStart(e: React.TouchEvent) {
     touchStartX.current = e.touches[0].clientX
@@ -54,7 +46,7 @@ export function BannerCarousel({ store, storeSlug }: BannerCarouselProps) {
     const diff = touchStartX.current - e.changedTouches[0].clientX
     if (Math.abs(diff) > 50) {
       setCurrent((c) =>
-        diff > 0 ? (c + 1) % slides.length : (c - 1 + slides.length) % slides.length
+        diff > 0 ? (c + 1) % banners.length : (c - 1 + banners.length) % banners.length
       )
     }
     touchStartX.current = null
@@ -62,120 +54,134 @@ export function BannerCarousel({ store, storeSlug }: BannerCarouselProps) {
 
   return (
     <div className="max-w-5xl mx-auto px-4 pt-4 pb-1">
-    <div
-      className="relative overflow-hidden select-none w-full h-56 sm:h-72 md:h-80"
-      style={{ borderRadius: 20 }}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-    >
-      {slides.map((slide, i) => {
-        const isFirst = i === 0
-        const hasBannerImage = isFirst && !!store.banner_url
-        const useDarkText = !hasBannerImage
+      <div
+        className="relative overflow-hidden select-none w-full h-40 sm:h-52 md:h-60"
+        style={{ borderRadius: 20 }}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
+        {banners.map((banner, i) => {
+          const hasBannerImage = !!banner.image_url
+          const useDarkText = !hasBannerImage
+          const bg = BG_PALETTE[i % BG_PALETTE.length]
+          const deco = DECO_PALETTE[i % DECO_PALETTE.length]
+          const heading = banner.title || (i === 0 ? store.name : "")
+          const sub = banner.subtitle || (i === 0 ? store.tagline || "Shop our collection" : "")
+          const link = banner.link || `/s/${storeSlug}/products`
 
-        return (
-          <div
-            key={i}
-            className="absolute inset-0 transition-opacity duration-700"
-            style={{ opacity: i === current ? 1 : 0, background: slide.bg }}
-          >
-            {/* Real banner image on slide 0 */}
-            {isFirst && store.banner_url && (
-              <>
-                <Image
-                  src={cloudinaryResize(store.banner_url, 1200)}
-                  alt=""
-                  fill
-                  className="object-cover"
-                  priority
-                />
-                <div className="absolute inset-0 bg-black/30" />
-              </>
-            )}
-
-            {/* Large decorative symbol — right side */}
+          return (
             <div
-              className="absolute right-4 top-1/2 -translate-y-1/2 leading-none pointer-events-none font-bold"
-              style={{
-                fontSize: "clamp(80px, 18vw, 200px)",
-                color: hasBannerImage ? "rgba(255,255,255,0.08)" : "rgba(201,144,154,0.12)",
-                lineHeight: 1,
-                zIndex: 1,
-              }}
+              key={banner.id}
+              className="absolute inset-0 transition-opacity duration-700"
+              style={{ opacity: i === current ? 1 : 0, background: bg }}
             >
-              {slide.deco}
-            </div>
-
-            {/* Left-aligned vertically-centered content */}
-            <div className="relative z-10 h-full flex flex-col justify-center px-6 sm:px-8 py-6 max-w-[60%]">
-              {isFirst && store.logo_url && (
-                <div
-                  className="w-10 h-10 rounded-full overflow-hidden border-2 mb-3 shrink-0"
-                  style={{ borderColor: useDarkText ? "var(--store-border)" : "rgba(255,255,255,0.5)" }}
-                >
+              {hasBannerImage && (
+                <>
                   <Image
-                    src={cloudinaryResize(store.logo_url, 80)}
-                    alt={store.name}
-                    width={40}
-                    height={40}
+                    src={cloudinaryResize(banner.image_url, 1400)}
+                    alt=""
+                    fill
                     className="object-cover"
+                    priority={i === 0}
                   />
-                </div>
+                  <div className="absolute inset-0 bg-black/30" />
+                </>
               )}
-              <h1
-                className="font-bold leading-tight mb-1"
+
+              {/* Decorative symbol */}
+              <div
+                className="absolute right-4 top-1/2 -translate-y-1/2 leading-none pointer-events-none font-bold"
                 style={{
-                  fontSize: "clamp(16px,3.5vw,28px)",
-                  color: useDarkText ? "var(--store-text)" : "#fff",
+                  fontSize: "clamp(60px, 14vw, 160px)",
+                  color: hasBannerImage ? "rgba(255,255,255,0.08)" : "rgba(201,144,154,0.12)",
+                  lineHeight: 1,
+                  zIndex: 1,
                 }}
               >
-                {slide.heading}
-              </h1>
-              <p
-                className="text-sm mb-4 leading-snug"
-                style={{ color: useDarkText ? "var(--store-text-muted)" : "rgba(255,255,255,0.85)" }}
-              >
-                {slide.sub}
-              </p>
-              {slide.link && (
-                <Link
-                  href={slide.link}
-                  className="inline-block px-5 py-2 text-sm font-semibold text-white w-fit transition-all hover:brightness-90"
-                  style={{
-                    backgroundColor: "var(--store-primary)",
-                    borderRadius: "var(--store-btn-radius)",
-                  }}
-                >
-                  {i === 0 ? "Shop Now" : "Explore →"}
-                </Link>
-              )}
-            </div>
-          </div>
-        )
-      })}
+                {deco}
+              </div>
 
-      {/* Dots */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-30">
-        {slides.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => setCurrent(i)}
-            aria-label={`Go to slide ${i + 1}`}
-            style={{
-              height: 6,
-              width: i === current ? 20 : 6,
-              borderRadius: 999,
-              transition: "width 0.3s, background-color 0.3s",
-              backgroundColor: i === current ? "var(--store-primary)" : "var(--store-border)",
-              border: "none",
-              cursor: "pointer",
-              padding: 0,
-              flexShrink: 0,
-            }}
-          />
-        ))}
+              {/* Content */}
+              <div className="relative z-10 h-full flex flex-col justify-center px-6 sm:px-8 py-4 max-w-[65%]">
+                {i === 0 && store.logo_url && (
+                  <div
+                    className="w-8 h-8 rounded-full overflow-hidden border-2 mb-2 shrink-0"
+                    style={{
+                      borderColor: useDarkText ? "var(--store-border)" : "rgba(255,255,255,0.5)",
+                    }}
+                  >
+                    <Image
+                      src={cloudinaryResize(store.logo_url, 80)}
+                      alt={store.name}
+                      width={32}
+                      height={32}
+                      className="object-cover"
+                    />
+                  </div>
+                )}
+                {heading && (
+                  <h1
+                    className="font-bold leading-tight mb-1"
+                    style={{
+                      fontSize: "clamp(14px,3vw,24px)",
+                      color: useDarkText ? "var(--store-text)" : "#fff",
+                    }}
+                  >
+                    {heading}
+                  </h1>
+                )}
+                {sub && (
+                  <p
+                    className="text-xs sm:text-sm mb-3 leading-snug"
+                    style={{
+                      color: useDarkText ? "var(--store-text-muted)" : "rgba(255,255,255,0.85)",
+                    }}
+                  >
+                    {sub}
+                  </p>
+                )}
+                {link && (
+                  <Link
+                    href={link}
+                    className="inline-block px-4 py-1.5 text-sm font-semibold text-white w-fit transition-all hover:brightness-90"
+                    style={{
+                      backgroundColor: "var(--store-primary)",
+                      borderRadius: "var(--store-btn-radius)",
+                    }}
+                  >
+                    Shop Now
+                  </Link>
+                )}
+              </div>
+            </div>
+          )
+        })}
+
+        {/* Dots — only shown when more than 1 banner */}
+        {banners.length > 1 && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-30">
+            {banners.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrent(i)}
+                aria-label={`Go to slide ${i + 1}`}
+                style={{
+                  height: 6,
+                  width: i === current ? 20 : 6,
+                  borderRadius: 999,
+                  transition: "width 0.3s, background-color 0.3s",
+                  backgroundColor:
+                    i === current ? "var(--store-primary)" : "var(--store-border)",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 0,
+                  flexShrink: 0,
+                }}
+              />
+            ))}
+          </div>
+        )}
       </div>
-    </div>
     </div>
   )
 }

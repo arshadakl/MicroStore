@@ -119,6 +119,16 @@ export const storeOnboardingSchema = z.object({
 
 export type StoreOnboardingInput = z.infer<typeof storeOnboardingSchema>
 
+export const storeBannerSchema = z.object({
+  id: z.string(),
+  image_url: z.string().optional().or(z.literal("")),
+  title: z.string().max(80, "Max 80 characters").optional().or(z.literal("")),
+  subtitle: z.string().max(150, "Max 150 characters").optional().or(z.literal("")),
+  link: z.string().optional().or(z.literal("")),
+})
+
+export type StoreBannerInput = z.infer<typeof storeBannerSchema>
+
 /**
  * Store settings form validation schema
  */
@@ -156,15 +166,7 @@ export const storeSettingsSchema = z.object({
     .regex(VALIDATION_PATTERNS.HTTPS_URL, "URL must use HTTPS")
     .optional()
     .or(z.literal("")),
-  bannerUrl: z
-    .string()
-    .url("Please enter a valid URL")
-    .regex(VALIDATION_PATTERNS.HTTPS_URL, "URL must use HTTPS")
-    .optional()
-    .or(z.literal("")),
-  bannerTitle: z.string().max(80, "Max 80 characters").optional().or(z.literal("")),
-  bannerSubtitle: z.string().max(150, "Max 150 characters").optional().or(z.literal("")),
-  bannerLink: z.string().optional().or(z.literal("")),
+  banners: z.array(storeBannerSchema).max(3, "Maximum 3 banners allowed").default([]),
   themeId: z.enum(THEME_IDS).default("minimal"),
 })
 

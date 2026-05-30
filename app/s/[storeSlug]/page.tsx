@@ -74,7 +74,7 @@ export default async function StorePage({ params }: StorePageProps) {
             {typedCategories.map((cat) => {
               const catProducts = typedProducts
                 .filter((p) => p.category_id === cat.id)
-                .slice(0, 8)
+                .slice(0, 3)
               if (catProducts.length === 0) return null
               return (
                 <ProductSection

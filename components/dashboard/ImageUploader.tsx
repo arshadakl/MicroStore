@@ -19,7 +19,7 @@ const PRESETS: Record<UploadPreset, {
 }> = {
   product: { aspectRatio: 1,          outputWidth: 800, outputHeight: 800, cropShape: "rect",  hint: "Square · 800×800px" },
   logo:    { aspectRatio: 1,          outputWidth: 400, outputHeight: 400, cropShape: "round", hint: "Square · 400×400px" },
-  banner:  { aspectRatio: 900 / 720,  outputWidth: 900, outputHeight: 720, cropShape: "rect",  hint: "Landscape · 900×720px" },
+  banner:  { aspectRatio: 1200 / 400, outputWidth: 1200, outputHeight: 400, cropShape: "rect", hint: "Landscape · 1200×400px" },
 }
 
 interface ImageUploaderProps {

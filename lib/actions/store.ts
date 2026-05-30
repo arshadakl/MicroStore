@@ -206,10 +206,13 @@ export async function updateStore(
         ? sanitizeString(validation.data.tagline)
         : null,
       logo_url: validation.data.logoUrl || null,
-      banner_url: validation.data.bannerUrl || null,
-      banner_title: validation.data.bannerTitle ? sanitizeString(validation.data.bannerTitle) : null,
-      banner_subtitle: validation.data.bannerSubtitle ? sanitizeString(validation.data.bannerSubtitle) : null,
-      banner_link: validation.data.bannerLink || null,
+      banners: validation.data.banners.map((b) => ({
+        id: b.id,
+        image_url: b.image_url || "",
+        title: b.title ? sanitizeString(b.title) : "",
+        subtitle: b.subtitle ? sanitizeString(b.subtitle) : "",
+        link: b.link || "",
+      })),
       theme_id: validation.data.themeId,
       updated_at: new Date().toISOString(),
     })

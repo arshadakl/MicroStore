@@ -9,6 +9,7 @@ import {
   type ProductInput,
 } from "@/lib/validations"
 import { ERROR_MESSAGES, ROUTES, PRODUCT_LIMITS } from "@/lib/constants"
+import { deleteCloudinaryImages } from "@/lib/actions/cloudinary"
 
 // ============================================================
 // TYPES
@@ -314,7 +315,13 @@ export async function deleteProduct(productId: string): Promise<ActionResult> {
 
   const supabase = await createClient()
 
-  // Step 4: Delete product
+  // Fetch images before delete so we can clean up Cloudinary after
+  const { data: productData } = await supabase
+    .from("products")
+    .select("images")
+    .eq("id", productId)
+    .single()
+
   const { error: deleteError } = await supabase
     .from("products")
     .delete()
@@ -325,7 +332,11 @@ export async function deleteProduct(productId: string): Promise<ActionResult> {
     return { success: false, error: ERROR_MESSAGES.UNKNOWN_ERROR }
   }
 
-  // Step 5: Revalidate dashboard + storefront ISR cache
+  // Non-blocking Cloudinary cleanup after successful DB delete
+  if (productData?.images?.length) {
+    deleteCloudinaryImages(productData.images).catch(() => {})
+  }
+
   revalidatePath(ROUTES.DASHBOARD_PRODUCTS)
   revalidateStorefront(store.slug)
 

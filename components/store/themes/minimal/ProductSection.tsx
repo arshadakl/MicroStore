@@ -31,15 +31,9 @@ export function ProductSection({ category, products, storeSlug, allProductsHref 
         </Link>
       </div>
 
-      {/* Horizontal scroll row */}
-      <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+      <div className="grid grid-cols-3 gap-3">
         {products.map((product) => (
-          <div
-            key={product.id}
-            style={{ width: "clamp(140px, 42vw, 180px)", flexShrink: 0 }}
-          >
-            <ProductCard product={product} storeSlug={storeSlug} />
-          </div>
+          <ProductCard key={product.id} product={product} storeSlug={storeSlug} />
         ))}
       </div>
     </section>

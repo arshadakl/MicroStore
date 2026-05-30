@@ -14,7 +14,7 @@ export function ProductCard({ product, storeSlug, categoryName }: ProductCardPro
   return (
     <Link
       href={`/s/${storeSlug}/${product.slug}`}
-      className="group block overflow-hidden transition-all duration-300 hover:-translate-y-1"
+      className="group flex flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1 h-full"
       style={{
         backgroundColor: "var(--store-card-bg)",
         borderRadius: 20,
@@ -22,9 +22,9 @@ export function ProductCard({ product, storeSlug, categoryName }: ProductCardPro
         boxShadow: "var(--store-card-shadow, 0 2px 8px rgba(0,0,0,0.06))",
       }}
     >
-      {/* Image area */}
+      {/* Image area — square, never grows */}
       <div
-        className="relative aspect-square overflow-hidden"
+        className="relative aspect-square overflow-hidden shrink-0"
         style={{ borderRadius: "19px 19px 0 0" }}
       >
         {product.images?.[0] ? (
@@ -32,7 +32,7 @@ export function ProductCard({ product, storeSlug, categoryName }: ProductCardPro
             src={cloudinaryResize(product.images[0], 400)}
             alt={product.title}
             fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 20vw"
             className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
@@ -56,28 +56,30 @@ export function ProductCard({ product, storeSlug, categoryName }: ProductCardPro
             ✦ Featured
           </div>
         )}
-      </div>
 
-      {/* Info */}
-      <div className="p-3 space-y-1">
+        {/* Category badge as image overlay so it doesn't affect card height */}
         {categoryName && (
-          <span
-            className="inline-block text-xs font-medium px-2 py-0.5 rounded-full uppercase tracking-wide"
+          <div
+            className="absolute bottom-2 left-2 px-2 py-0.5 text-xs font-medium rounded-full uppercase tracking-wide"
             style={{
-              backgroundColor: "var(--store-primary-light, #f5e8eb)",
+              backgroundColor: "rgba(255,255,255,0.85)",
               color: "var(--store-primary)",
             }}
           >
             {categoryName}
-          </span>
+          </div>
         )}
+      </div>
+
+      {/* Info — fills remaining height so price is always at bottom */}
+      <div className="p-3 flex flex-col flex-1">
         <p
-          className="text-sm font-medium line-clamp-2 leading-snug"
+          className="text-sm font-medium line-clamp-2 leading-snug flex-1"
           style={{ color: "var(--store-text)" }}
         >
           {product.title}
         </p>
-        <p className="font-bold" style={{ fontSize: 15, color: "var(--store-primary)" }}>
+        <p className="font-bold mt-1" style={{ fontSize: 15, color: "var(--store-primary)" }}>
           &#8377;{product.price.toLocaleString("en-IN")}
         </p>
       </div>

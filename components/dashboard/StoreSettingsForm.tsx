@@ -11,12 +11,12 @@ import type { Store } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/hooks/use-toast"
 import { ImageUploader } from "@/components/dashboard/ImageUploader"
+import { BannerManager } from "@/components/dashboard/BannerManager"
 
 interface StoreSettingsFormProps {
   store: Store
@@ -32,6 +32,7 @@ export function StoreSettingsForm({ store, products = [] }: StoreSettingsFormPro
     handleSubmit,
     watch,
     setValue,
+    control,
     formState: { errors },
   } = useForm<StoreSettingsInput>({
     resolver: zodResolver(storeSettingsSchema),
@@ -40,24 +41,17 @@ export function StoreSettingsForm({ store, products = [] }: StoreSettingsFormPro
       whatsappNumber: store.whatsapp_number,
       tagline: store.tagline ?? "",
       logoUrl: store.logo_url ?? "",
-      bannerUrl: store.banner_url ?? "",
-      bannerTitle: store.banner_title ?? "",
-      bannerSubtitle: store.banner_subtitle ?? "",
-      bannerLink: store.banner_link ?? "",
+      banners: store.banners ?? [],
       themeId: store.theme_id,
     },
   })
 
   const watchedTheme = watch("themeId")
   const watchedLogoUrl = watch("logoUrl") ?? ""
-  const watchedBannerUrl = watch("bannerUrl") ?? ""
-  const watchedBannerLink = watch("bannerLink") ?? ""
 
   async function onSubmit(data: StoreSettingsInput) {
     setLoading(true)
-
     const result = await updateStore(store.id, data)
-
     setLoading(false)
 
     if (!result.success) {
@@ -69,10 +63,7 @@ export function StoreSettingsForm({ store, products = [] }: StoreSettingsFormPro
       return
     }
 
-    toast({
-      title: "Settings saved!",
-      description: "Your store has been updated.",
-    })
+    toast({ title: "Settings saved!", description: "Your store has been updated." })
     router.refresh()
   }
 
@@ -86,11 +77,7 @@ export function StoreSettingsForm({ store, products = [] }: StoreSettingsFormPro
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="name">Store Name</Label>
-            <Input
-              id="name"
-              aria-invalid={!!errors.name}
-              {...register("name")}
-            />
+            <Input id="name" aria-invalid={!!errors.name} {...register("name")} />
             {errors.name && (
               <p className="text-sm text-destructive">{errors.name.message}</p>
             )}
@@ -138,9 +125,7 @@ export function StoreSettingsForm({ store, products = [] }: StoreSettingsFormPro
             <Label>Logo (optional)</Label>
             <ImageUploader
               value={watchedLogoUrl ? [watchedLogoUrl] : []}
-              onChange={(urls) =>
-                setValue("logoUrl", urls[0] ?? "", { shouldValidate: true })
-              }
+              onChange={(urls) => setValue("logoUrl", urls[0] ?? "", { shouldValidate: true })}
               preset="logo"
               maxImages={1}
               disabled={loading}
@@ -154,72 +139,16 @@ export function StoreSettingsForm({ store, products = [] }: StoreSettingsFormPro
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Banner</CardTitle>
-          <CardDescription>Hero banner shown at the top of your store</CardDescription>
+          <CardTitle className="text-base">Banners</CardTitle>
+          <CardDescription>Hero banners shown at the top of your store (up to 3)</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Banner Image (optional)</Label>
-            <ImageUploader
-              value={watchedBannerUrl ? [watchedBannerUrl] : []}
-              onChange={(urls) =>
-                setValue("bannerUrl", urls[0] ?? "", { shouldValidate: true })
-              }
-              preset="banner"
-              maxImages={1}
-              disabled={loading}
-            />
-            {errors.bannerUrl && (
-              <p className="text-sm text-destructive">{errors.bannerUrl.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="bannerTitle">Banner Title (optional)</Label>
-            <Input
-              id="bannerTitle"
-              placeholder={`e.g. New Arrivals ✨`}
-              {...register("bannerTitle")}
-              disabled={loading}
-            />
-            <p className="text-xs text-muted-foreground">Defaults to your store name if left empty.</p>
-            {errors.bannerTitle && (
-              <p className="text-sm text-destructive">{errors.bannerTitle.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="bannerSubtitle">Banner Subtitle (optional)</Label>
-            <Input
-              id="bannerSubtitle"
-              placeholder="e.g. Fresh picks, just dropped"
-              {...register("bannerSubtitle")}
-              disabled={loading}
-            />
-            {errors.bannerSubtitle && (
-              <p className="text-sm text-destructive">{errors.bannerSubtitle.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="bannerLink">Banner Button Link (optional)</Label>
-            <select
-              id="bannerLink"
-              value={watchedBannerLink}
-              onChange={(e) => setValue("bannerLink", e.target.value)}
-              disabled={loading}
-              className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">No link (button hidden)</option>
-              <option value={`/s/${store.slug}/products`}>All Products page</option>
-              {products.map((p) => (
-                <option key={p.id} value={`/s/${store.slug}/${p.slug}`}>
-                  {p.title}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-muted-foreground">Link opens when visitors click the banner button.</p>
-          </div>
+        <CardContent>
+          <BannerManager
+            control={control}
+            storeSlug={store.slug}
+            products={products}
+            disabled={loading}
+          />
         </CardContent>
       </Card>
 

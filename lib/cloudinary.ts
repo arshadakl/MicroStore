@@ -11,6 +11,25 @@ export function cloudinaryResize(url: string, width = 400, quality = 80): string
   return url.replace("/upload/", `/upload/w_${width},q_${quality},f_auto,c_fill/`)
 }
 
+/**
+ * Extracts the Cloudinary public_id from a stored secure_url.
+ * Handles URLs with or without transform segments and version prefixes.
+ * Returns null if the URL is not a Cloudinary URL.
+ */
+export function extractCloudinaryPublicId(url: string): string | null {
+  if (!url?.includes("res.cloudinary.com")) return null
+  const uploadIdx = url.indexOf("/upload/")
+  if (uploadIdx === -1) return null
+  let rest = url.slice(uploadIdx + 8)
+  // Strip transform segment (contains commas) e.g. "w_400,q_80,f_auto,c_fill/"
+  if (/^[a-z_,0-9]+\//.test(rest)) rest = rest.replace(/^[^/]+\//, "")
+  // Strip version prefix e.g. "v1234567890/"
+  rest = rest.replace(/^v\d+\//, "")
+  // Strip file extension
+  rest = rest.replace(/\.[a-z0-9]+$/i, "")
+  return rest || null
+}
+
 export interface CloudinaryUploadResult {
   secure_url: string
   public_id: string

@@ -11,16 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Spinner } from "@/components/ui/spinner"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { Pencil, Trash2, Copy, ExternalLink, Package, Star, Eye, EyeOff, Search } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
@@ -294,27 +285,15 @@ export function ProductListTable({ products, storeSlug, categories = [] }: Produ
         </div>
       )}
 
-      <AlertDialog open={!!deletingId} onOpenChange={(open) => !open && setDeletingId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete product?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. The product will be permanently removed from your store.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-white hover:bg-destructive/90"
-              onClick={() => deletingId && handleDelete(deletingId)}
-              disabled={deleting}
-            >
-              {deleting && <Spinner className="mr-2 h-4 w-4" />}
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={!!deletingId}
+        onOpenChange={(open) => !open && setDeletingId(null)}
+        title="Delete product?"
+        description="This action cannot be undone. The product and all its images will be permanently removed from your store."
+        confirmLabel="Delete"
+        loading={deleting}
+        onConfirm={() => deletingId && handleDelete(deletingId)}
+      />
     </>
   )
 }

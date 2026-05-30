@@ -7,16 +7,7 @@ import { Category } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { Pencil, Trash2, Check, X, Tag, Plus } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
@@ -215,27 +206,15 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
         </div>
       )}
 
-      <AlertDialog open={!!deletingId} onOpenChange={(open) => !open && setDeletingId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete category?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Products in this category will not be deleted — they will simply have no category assigned.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-white hover:bg-destructive/90"
-              onClick={() => deletingId && handleDelete(deletingId)}
-              disabled={deleting}
-            >
-              {deleting ? <Spinner className="h-4 w-4 mr-2" /> : null}
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={!!deletingId}
+        onOpenChange={(open) => !open && setDeletingId(null)}
+        title="Delete category?"
+        description="Products in this category will not be deleted — they will simply have no category assigned."
+        confirmLabel="Delete"
+        loading={deleting}
+        onConfirm={() => deletingId && handleDelete(deletingId)}
+      />
     </div>
   )
 }
